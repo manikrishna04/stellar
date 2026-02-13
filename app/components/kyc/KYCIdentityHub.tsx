@@ -51,13 +51,12 @@ export default function KYCIdentityHub({ onComplete }: { onComplete: () => void 
         uploadToCloudinary(secondaryFile)
       ]);
 
-      // 2. Map data to Backend (name instead of type)
       const documents = [
         { type: primaryType, url: primaryUrl },
         { type: secondaryType, url: secondaryUrl }
       ];
 
-      // 3. Update Database via Django API
+      // 2. Update Database via Django API
       const response = await fetch(`http://127.0.0.1:8000/api/upload-kyc/${userId}/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -65,7 +64,16 @@ export default function KYCIdentityHub({ onComplete }: { onComplete: () => void 
       });
 
       if (response.ok) {
+        // 3. SUCCESS: Set the specific status that triggers the Dashboard Lock
+        localStorage.setItem("gb_kyc_status", "DOCUMENTS_UPLOADED");
+        
+        // 4. Call parent callback to trigger the immediate Dashboard view re-render
         onComplete(); 
+
+        // 5. Fallback: Force a hard refresh to the root if the parent fails to re-render
+        setTimeout(() => {
+          window.location.href = "/"; 
+        }, 1000);
       } else {
         const data = await response.json();
         alert(data.message || "Database update failed");
@@ -101,7 +109,7 @@ export default function KYCIdentityHub({ onComplete }: { onComplete: () => void 
                   Verification Required
                 </h3>
                 <p className="text-[10px] text-slate-400 leading-relaxed font-medium">
-                  Your account is in KYC PENDING status. Provide identification to unlock institutional services.
+                  Your account is currently in KYC Pending status. Please provide the required identification documents to unlock corporate payment services.
                 </p>
               </div>
 
@@ -111,13 +119,10 @@ export default function KYCIdentityHub({ onComplete }: { onComplete: () => void 
                   Review Process
                 </h3>
                 <p className="text-[10px] text-slate-500 leading-relaxed font-medium italic">
-                  Once uploaded, documents are reviewed by the compliance team. Account activation follows immediately upon approval.
+                  After you upload your documents, our team will check them to make sure everything is correct. As soon as they are approved, your account will be activated automatically.
                 </p>
               </div>
             </div>
-          </div>
-          <div className="p-3 bg-slate-950/50 border border-slate-800 rounded text-center">
-            <p className="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em]">Secure Session • AES-256</p>
           </div>
         </div>
 
@@ -125,9 +130,16 @@ export default function KYCIdentityHub({ onComplete }: { onComplete: () => void 
         <div className="md:col-span-8 bg-slate-950 p-8">
           <Card className="bg-transparent border-none shadow-none space-y-8">
             <header className="space-y-1">
-              <p className="text-blue-500 text-[9px] font-black uppercase tracking-[0.3em]">Institutional Verification</p>
-              <h2 className="text-2xl font-black text-white tracking-tighter uppercase leading-none">KYC Documentation</h2>
-              <CardDescription className="text-slate-500 text-xs mt-2">Upload identity proofs to finalize account activation.</CardDescription>
+              <p className="text-blue-500 text-[9px] font-black uppercase tracking-[0.3em]">
+                KYC Verification
+              </p>
+              <h2 className="text-2xl font-black text-white tracking-tighter uppercase leading-none">
+                Verify Your Identity
+              </h2>
+              <CardDescription className="text-slate-400 text-xs mt-2 leading-relaxed">
+                Please upload your ID documents to finish setting up your profile. 
+                This helps us protect your funds and unlock all payment features.
+              </CardDescription>
             </header>
 
             <CardContent className="p-0 space-y-6">
@@ -192,7 +204,6 @@ export default function KYCIdentityHub({ onComplete }: { onComplete: () => void 
   );
 }
 
-// Fixed LabelItem component to keep asterisk stuck to label
 function LabelItem({ label, required = false }: { label: string, required?: boolean }) {
   return (
     <div className="flex items-center gap-1 px-1">

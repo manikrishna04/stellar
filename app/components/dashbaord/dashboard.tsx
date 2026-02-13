@@ -14,7 +14,13 @@ import { swapAssets } from "../../lib/swap";
 import { searchAssets, AssetRecord } from "../../lib/assets";
 import { getBalances, getTransactions } from "../../lib/balances";
 import { Card, Button, Input, Label } from "../../ui-helpers";
-
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 interface DashboardProps {
   onAudit: (hash: string) => void;
   userName: string;
@@ -283,7 +289,7 @@ const handleExecuteAddAsset = async () => {
 
   return (
     <div className="space-y-5 animate-in fade-in duration-700 max-w-[1600px] mx-auto p-2">
-      
+     
       {/* PRE-PAYMENT REVIEW MODAL */}
       {confirmData && (
         <div className="fixed inset-0 h-screen w-screen z-[9999] flex items-center justify-center p-4">
@@ -475,7 +481,7 @@ const handleExecuteAddAsset = async () => {
                       </div>
                       <div className="flex gap-3">
                         <Button onClick={() => setAssetConfirm(null)} variant="secondary" className="flex-1 h-12 uppercase text-[10px] font-black">Cancel</Button>
-                        <Button onClick={handleExecuteAddAsset} className="flex-1 h-12 bg-blue-600 font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-900/20">Establish Trust</Button>
+                        <Button onClick={handleExecuteAddAsset} className="flex-1 h-12 bg-blue-600 font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-900/20">Confirm</Button>
                       </div>
                     </Card>
                   </div>
@@ -556,9 +562,21 @@ const handleExecuteAddAsset = async () => {
                   <div className="bg-slate-950 p-6 rounded-3xl border border-slate-800 space-y-4 shadow-xl">
                     <Label>Withdraw (Give)</Label>
                     <div className="flex gap-4">
-                      <select className="w-1/2 h-12 bg-slate-900 border border-slate-800 rounded-xl px-4 text-xs text-white" value={swapForm.sendAssetIndex} onChange={e=>setSwapForm({...swapForm, sendAssetIndex: parseInt(e.target.value)})}>
-                        {balances.map((b, i)=>(<option key={i} value={i}>{b.asset.split(':')[0]}</option>))}
-                      </select>
+                     <Select 
+                      value={swapForm.sendAssetIndex.toString()} 
+                      onValueChange={(val) => setSwapForm({...swapForm, sendAssetIndex: parseInt(val)})}
+                    >
+                      <SelectTrigger className="w-1/2 h-12 bg-slate-900 border-slate-800 rounded-xl px-4 text-xs text-white outline-none focus:ring-1 focus:ring-blue-500/50 transition-all">
+                        <SelectValue placeholder="Asset" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
+                        {balances.map((b, i) => (
+                          <SelectItem key={i} value={i.toString()} className="text-xs focus:bg-blue-600 focus:text-white cursor-pointer">
+                            {b.asset.split(':')[0]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                       <Input className="flex-1" placeholder="Amount" value={swapForm.amount} onChange={(e:any)=>setSwapForm({...swapForm, amount:e.target.value})} />
                     </div>
                   </div>

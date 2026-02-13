@@ -2009,7 +2009,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, LogOut, X, Download, Copy, ShieldAlert, KeyRound } from "lucide-react";
+import { Loader2, LogOut, X, Download, Copy, ShieldAlert, KeyRound, CheckCircle2, Building2, ShieldCheck, Circle } from "lucide-react";
 import { Button, Card } from "./ui-helpers";
 import Login from "./components/login/login";
 import Sidebar from "./components/sidebar/sidebar";
@@ -2130,39 +2130,72 @@ useEffect(() => {
   // B. Unauthenticated State
   if (!isAuthenticated) return <Login onLoginSuccess={handleLoginSuccess} />;
 
-  // C. KYC Pending Redirect
-  if (userRole === 'KYC_REQUIRED' || kycStatus === 'KYC_PENDING') {
-    return (
-      <KYCIdentityHub onComplete={() => {
-        localStorage.setItem("gb_kyc_status", "DOCUMENTS_UPLOADED");
-        setKycStatus("DOCUMENTS_UPLOADED");
-        window.location.reload();
-      }} />
-    );
-  }
+  /// Inside app/page.tsx - Find your KYC Pending Redirect block
+  // C. STAGE 01: KYC Identity Hub (Capture ONLY Pending status)
+// This ensures that once status is 'DOCUMENTS_UPLOADED', this block is skipped.
+if (userRole === 'KYC_REQUIRED' && kycStatus === 'KYC_PENDING') {
+  return (
+    <KYCIdentityHub onComplete={() => {
+      localStorage.setItem("gb_kyc_status", "DOCUMENTS_UPLOADED");
+      setKycStatus("DOCUMENTS_UPLOADED");
+      // The state update above will trigger a re-render and skip this IF block
+    }} />
+  );
+}
 
   // D. Authorization Lock: Passphrase for Admin OR Restricted Review
   if (!wallet) return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative">
-      
-      {/* REVIEW OVERLAY: For Submitted but Unapproved Beneficiaries */}
-      {kycStatus === 'DOCUMENTS_UPLOADED' && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-700">
-           <Card className="max-w-md w-full border-blue-500/20 bg-slate-900/80 p-10 text-center shadow-2xl mx-4">
-              <div className="w-20 h-20 bg-blue-600/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-blue-500/20">
-                <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
-              </div>
-              <h2 className="text-2xl font-black text-white tracking-tighter uppercase mb-2">Verification in Progress</h2>
-              <p className="text-slate-400 text-[11px] font-medium leading-relaxed mb-8 px-4 italic">
-                Identification scans have been submitted to Ghazanfar Bank Compliance. Treasury services remain locked until account activation.
-              </p>
-              <div className="py-3 px-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest">Est. Activation: 24-48 Hours</p>
-              </div>
-              <Button variant="danger" onClick={() => { localStorage.clear(); window.location.reload(); }} className="mt-8 w-full h-12 bg-red-950/20 border-red-500/20 text-red-500 uppercase text-[10px] font-black">Abandon Session</Button>
-           </Card>
-        </div>
-      )}
+     {kycStatus === 'DOCUMENTS_UPLOADED' && (
+      <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 overflow-hidden">
+        {/* Minimalist Backdrop Blur - Background Dashboard is visible */}
+        <div className="absolute inset-0 bg-[#020617]/40 backdrop-blur-sm animate-in fade-in duration-1000" />
+        
+        <Card className="max-w-md w-full border-white/5 bg-slate-1000/95 p-10 text-center shadow-[0_0_80px_rgba(0,0,0,0.5)] relative z-10 rounded-[2.5rem] animate-in zoom-in-95">
+          
+          {/* --- UPDATED 4-STEP LIFECYCLE --- */}
+          <div className="flex items-center justify-center gap-0 mb-10 px-2">
+            {/* Step 1: Account Created by Bank */}
+            <StatusStep icon={Building2} label="Account" status="CREATED" color="text-emerald-500" active />
+            <div className="flex-1 h-[1px] bg-emerald-500/40 min-w-[20px] mb-4" />
+            
+            {/* Step 2: Documents Uploaded by User */}
+            <StatusStep icon={CheckCircle2} label="Documents" status="UPLOADED" color="text-emerald-500" active />
+            <div className="flex-1 h-[1px] bg-purple-500/40 min-w-[20px] mb-4" />
+            
+            {/* Step 3: Verification by Bank (CURRENT STATE) */}
+            <StatusStep icon={ShieldCheck} label=" Kyc Verification" status="PENDING" color="text-purple-500" glow />
+            <div className="flex-1 h-[1px] bg-slate-800 min-w-[20px] mb-4" />
+            
+            {/* Step 4: Active */}
+            <StatusStep icon={Circle} label="Activation" status="Pending" color="text-slate-600" />
+          </div>
+
+          <div className="w-16 h-16 bg-purple-600/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-purple-500/20 shadow-inner">
+            <ShieldCheck className="text-purple-500 w-8 h-8" />
+          </div>
+
+          <h2 className="text-2xl font-black text-white tracking-tighter uppercase mb-2">Review in Progress</h2>
+          <p className="text-slate-400 text-[11px] leading-relaxed mb-8 px-4 ">
+            Your documents are currently being verified by the Ghazanfar Bank Compliance Team. Access will be granted automatically once they approved.
+          </p>
+          
+          <div className="py-3 px-6 bg-slate-950 border border-slate-800 rounded-2xl inline-block mb-6">
+            <p className="text-[10px] text-blue-400 font-black uppercase tracking-widest flex items-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin" /> Est. Activation: 24-48 Hours
+            </p>
+          </div>
+
+          <Button 
+            variant="ghost" 
+            onClick={() => window.location.reload()} 
+            className="w-full h-12 border border-slate-800 text-slate-500 uppercase text-[10px] font-black hover:bg-slate-800 transition-all"
+          >
+            Check Status
+          </Button>
+        </Card>
+      </div>
+    )}
 
       {/* VAULT AUTH: Only shown if wallet is null (Admins or Inactive Users) */}
       <div className="max-w-md w-full space-y-8 animate-in zoom-in-95 duration-500">
@@ -2190,10 +2223,23 @@ useEffect(() => {
       </div>
     </div>
   );
-
+function StatusStep({ icon: Icon, label, status, color, active = false, glow = false }: any) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 flex-shrink-0">
+      <div className={`p-1.5 rounded-full bg-slate-900 border ${active ? 'border-emerald-500/50' : 'border-slate-800'} ${glow ? 'ring-2 ring-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.4)] border-purple-500' : ''}`}>
+        <Icon className={`w-3.5 h-3.5 ${color}`} />
+      </div>
+      <div className="text-center leading-tight">
+        <p className="text-[8px] font-black text-white uppercase tracking-tighter">{label}</p>
+        <p className={`text-[6px] font-bold uppercase tracking-widest ${color}`}>{status}</p>
+      </div>
+    </div>
+  );
+}
   // E. Final Authorized Layout (Dashboard)
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col">
+    <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col relative overflow-hidden">
+    
       {/* INSTITUTIONAL HEADER */}
       <header className="h-20 border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-50 px-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -2213,7 +2259,7 @@ useEffect(() => {
               <h2 className="text-sm font-extrabold text-white tracking-tight leading-none uppercase">{companyName || "Corporate Client"}</h2>
             </div>
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-[9px] text-white-600 font-bold uppercase tracking-tighter">Wallet ID:</span>
+              <span className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Wallet ID:</span>
               <div className="flex items-center gap-1.5 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
                 <p className="text-[10px] font-mono text-blue-400 font-bold">
                   {wallet?.publicKey ? `${wallet.publicKey.substring(0, 8)}...${wallet.publicKey.substring(50)}` : "ADMIN_NODE"}
