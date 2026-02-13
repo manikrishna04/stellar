@@ -2185,14 +2185,27 @@ if (userRole === 'KYC_REQUIRED' && kycStatus === 'KYC_PENDING') {
               <Loader2 className="w-3 h-3 animate-spin" /> Est. Activation: 24-48 Hours
             </p>
           </div>
+          
+          <div className="flex gap-3">
+            <Button 
+              variant="ghost" 
+              onClick={() => window.location.reload()} 
+              className="w-full h-12 border border-slate-800 text-slate-500 uppercase text-[10px] font-black hover:bg-slate-800 transition-all"
+            >
+              Check Status
+            </Button>
 
-          <Button 
-            variant="ghost" 
-            onClick={() => window.location.reload()} 
-            className="w-full h-12 border border-slate-800 text-slate-500 uppercase text-[10px] font-black hover:bg-slate-800 transition-all"
-          >
-            Check Status
-          </Button>
+            <Button 
+              variant="ghost"
+              onClick={() => {
+                localStorage.clear();
+                window.location.reload();
+              }}
+              className="w-full h-12 border border-slate-800 text-slate-500 uppercase text-[10px] font-black hover:bg-blue-600 hover:text-white transition-all"
+            >
+              Back to Login
+            </Button>
+          </div>
         </Card>
       </div>
     )}

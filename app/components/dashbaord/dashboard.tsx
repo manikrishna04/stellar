@@ -5,7 +5,8 @@ import {
   Copy, RefreshCw, Send, ArrowRightLeft, ShieldPlus, History, 
   Loader2, Trash2, ArrowDown, Plus, TrendingUp, 
   ExternalLink, Activity, X, ShieldCheck, Download, Building2, Briefcase, Search, User,
-  AlertTriangle
+  AlertTriangle,Contact,
+  CheckCircle2,
 } from "lucide-react";
 import { Asset } from "@stellar/stellar-sdk";
 import { server } from "../../lib/stellar";
@@ -21,6 +22,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
+import {  deleteContact, getContacts, saveContact } from "@/app/lib/contacts";
 interface DashboardProps {
   onAudit: (hash: string) => void;
   userName: string;
@@ -50,8 +52,18 @@ export default function WalletDashboard({ onAudit, userName, role }: DashboardPr
   const [isAuthorizing, setIsAuthorizing] = useState<string | null>(null); // Tracks which asset code is loading
   const [assetConfirm, setAssetConfirm] = useState<any>(null); // For the pre-flight modal
   const addLog = (msg: string) => setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 5)]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [showContactAdd, setShowContactAdd] = useState(false);
+  const [newContactForm, setNewContactForm] = useState({ name: "", address: "" });
   const [isRemoving, setIsRemoving] = useState<string | null>(null); // Tracks which asset is being deleted
+  const [consoleTab, setConsoleTab] = useState<'DIRECTORY' | 'ADD'>('DIRECTORY');
+  const [contactSearch, setContactSearch] = useState("");
 
+  // Filtered contact list based on search query
+  const filteredContacts = contacts.filter(c => 
+    c.name.toLowerCase().includes(contactSearch.toLowerCase()) || 
+    c.address.toLowerCase().includes(contactSearch.toLowerCase())
+);
     /* --- FIXED SYNC LOGIC --- */
     useEffect(() => {
       // 1. Check for Admin Wallet Object
@@ -85,6 +97,22 @@ export default function WalletDashboard({ onAudit, userName, role }: DashboardPr
         setBalances(b);
         setTxs(t);
       } catch (e) { addLog("Sync interrupted."); }
+    };
+
+    useEffect(() => {
+      setContacts(getContacts());
+    }, []);
+
+    const handleAddContact = () => {
+      if (!newContactForm.name || newContactForm.address.length < 56) {
+        alert("Invalid contact details.");
+        return;
+      }
+      const updated = saveContact(newContactForm.name, newContactForm.address);
+      setContacts(updated);
+      setNewContactForm({ name: "", address: "" });
+      setShowContactAdd(false);
+      addLog(`Contact ${newContactForm.name} saved.`);
     };
     /* --- 2. UPDATE CORE ACTIONS --- */
   // Inside app/components/dashbaord/dashboard.tsx
@@ -307,7 +335,7 @@ const handleExecuteAddAsset = async () => {
                 <div className="flex justify-between border-b border-white/5 pb-2"><span className="text-slate-500 font-black">TOTAL IMPACT</span><span className="text-blue-400 font-black">{confirmData.debitAmount} {confirmData.debitAsset} + Fee</span></div>
                 <div className="flex flex-col gap-1 pt-1"><span className="text-slate-500 text-[10px]">BENEFICIARY</span><span className="text-slate-400 break-all text-[10px] leading-tight">{confirmData.to}</span></div>
               </div>
-              <p className="text-[9px] text-slate-500 italic text-center px-4">Ledger transactions are final. Verified by Ghazanfar Institutional Node.</p>
+              {/* <p className="text-[9px] text-slate-500 italic text-center px-4">Ledger transactions are final. Verified by Ghazanfar Institutional Node.</p> */}
             </div>
 
             <div className="flex gap-3">
@@ -339,79 +367,144 @@ const handleExecuteAddAsset = async () => {
           </Card>
         </div>
       )}
-     {/* 1. ASSET GRID */}
-      <section className="space-y-4">
-        <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2 ml-1">
-          <Briefcase className="w-3 h-3 text-blue-500"/> Wallet Assets
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {balances.map((b, i) => (
-            <div key={i} className="p-5 rounded-2xl border border-slate-800 bg-slate-900 hover:border-slate-700 transition-all group shadow-lg">
-              <div className="flex justify-between items-start mb-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold bg-blue-900/30 text-blue-400`}>
-                  {b.asset[0]}
+    {/* 1. ASSET GRID */}
+<section className="space-y-4">
+  <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2 ml-1">
+    <Briefcase className="w-3 h-3 text-blue-500"/> Assets
+  </h2>
+  
+  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 perspective-1000">
+    {balances.map((b, i) => {
+      const assetCode = b.asset.split(':')[0].toLowerCase();
+      // Logic for fallback icons if API doesn't have the specific token
+      const iconUrl = `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${assetCode}.svg`;
+
+      function setLiquidityModal(arg0: { show: boolean; code: any; issuer: any; }) {
+        throw new Error("Function not implemented.");
+      }
+
+      // function setLiquidityModal(arg0: { show: boolean; code: any; issuer: any; }) {
+      //   throw new Error("Function not implemented.");
+      // }
+
+      return (
+        <div key={i} className="group h-[200px] w-full cursor-pointer">
+          <div className="relative w-full h-full transition-all duration-700 preserve-3d group-hover:rotate-y-180">
+            
+            {/* FRONT SIDE: USER-FRIENDLY DASHBOARD CARD */}
+            <div className="absolute inset-0 backface-hidden p-6 rounded-[2rem] border border-slate-800 bg-slate-900/80 shadow-2xl flex flex-col justify-between overflow-hidden">
+              {/* Dynamic Crypto Icon from API */}
+              <div className="flex justify-between items-start relative z-10">
+                <div className="w-12 h-12 bg-slate-950 rounded-2xl border border-white/5 flex items-center justify-center p-2.5 shadow-inner">
+                  <img 
+                    src={iconUrl} 
+                    alt={assetCode.toUpperCase()} 
+                    className="w-full h-full object-contain"
+                    onError={(e: any) => { 
+                      e.target.src = `https://ui-avatars.com/api/?name=${assetCode.toUpperCase()}&background=0D8ABC&color=fff&bold=true&size=128`; 
+                    }} 
+                  />
                 </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/5 border border-emerald-500/20 rounded-full group/badge">
+                  {/* The leading checkmark icon */}
+                  <div className="w-3.5 h-3.5 bg-emerald-500 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(16,185,129,0.3)]">
+                    <CheckCircle2 className="w-2.5 h-2.5 text-slate-950" strokeWidth={4} />
+                  </div>
+                  
+                  {/* Badge Text */}
+                  <span className="text-[6px] font-black text-emerald-500 uppercase tracking-[0.1em]">
+                    {b.asset === 'XLM' ? 'System' : 'Verified'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="relative z-10">
+                <p className="text-[10px] text-slate-500 font-bold uppercase mb-1 tracking-tight">
+                  {b.asset.split(':')[0]} Balance
+                </p>
+                <div className="text-2xl font-black tracking-tighter text-white flex items-baseline gap-2">
+                  {parseFloat(b.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                  <span className="text-xs text-slate-500 font-mono">{b.asset.split(':')[0]}</span>
+                </div>
+              </div>
+
+              {/* Status Indicator matching reference design */}
+              {/* <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-slate-400 tracking-wider">
+                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${parseFloat(b.spendable) > 0 ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                {parseFloat(b.spendable) > 0 ? 'On-Chain' : 'Liquidity Locked'}
+              </div> */}
+
+              {/* Animated Background Glow */}
+              <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-blue-500/5 blur-[60px] rounded-full group-hover:bg-blue-500/10 transition-all" />
+            </div>
+
+            {/* BACK SIDE: INSTITUTIONAL AUDIT VIEW */}
+            <div className="absolute inset-0 backface-hidden rotate-y-180 p-6 rounded-[2rem] border border-blue-500/20 bg-[#020617] shadow-[0_0_50px_rgba(30,58,138,0.3)] flex flex-col justify-between z-10 [transform:rotateY(180deg)_translateZ(1px)]">
+              <div className="flex justify-between items-center relative z-20">
+                <span className="text-[10px] font-black text-blue-500 uppercase flex items-center gap-1.5">
+                  <ShieldCheck className="w-3 h-3"/> Audit Proof
+                </span>
                 
                 {b.asset !== 'XLM' && (
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={()=>setLiquidityModal({show: true, code: b.asset.split(':')[0], issuer: b.asset.split(':')[1]})} className="text-emerald-500 hover:text-emerald-400">
-                      <TrendingUp className="w-4 h-4"/>
-                    </button>
-                    <button 
-                      onClick={() => handleRemoveAsset(b.asset.split(':')[0], b.asset.split(':')[1], b.balance)} 
-                      disabled={isRemoving === b.asset.split(':')[0]}
-                      className="text-slate-600 hover:text-red-500 transition-colors disabled:opacity-50"
-                      title="Remove Asset"
-                    >
-                      {isRemoving === b.asset.split(':')[0] ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4"/>
-                      )}
-                    </button>
+                <button 
+                  type="button"
+                  disabled={isRemoving === b.asset.split(':')[0]}
+                  onClick={(e) => { 
+                    e.preventDefault();
+                    e.stopPropagation(); 
+                    handleRemoveAsset(b.asset.split(':')[0], b.asset.split(':')[1], b.balance); 
+                  }} 
+                  className="text-slate-500 hover:text-red-500 transition-colors p-2 -m-2 relative z-[30] pointer-events-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isRemoving === b.asset.split(':')[0] ? (
+                    /* SPINNING LOADER */
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                  ) : (
+                    /* TRASH ICON */
+                    <Trash2 className="w-4 h-4 pointer-events-none"/>
+                  )}
+                </button>
+              )}
+              </div>
+
+              <div className="space-y-3 font-mono text-[10px]">
+                <div className="flex justify-between border-b border-slate-800/50 pb-2">
+                  <span className="text-slate-500 uppercase font-bold">Spendable</span>
+                  <span className="text-emerald-500 font-bold">{parseFloat(b.spendable).toFixed(4)}</span>
+                </div>
+                {b.asset === 'XLM' ? (
+                  <>
+                    <div className="flex justify-between border-b border-slate-800/50 pb-2">
+                      <span className="text-slate-500 uppercase font-bold">Reserved</span>
+                      <span className="text-amber-500 font-bold">{parseFloat(b.reserved).toFixed(4)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-800/50 pb-2">
+                      <span className="text-slate-500 uppercase font-bold">Subentries</span>
+                      <span className="text-blue-400 font-bold">{b.subentries}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-[8px] text-slate-600 leading-relaxed italic py-2">
+                    Verified stellar asset
                   </div>
                 )}
               </div>
-              
-              <h3 className="text-[10px] font-black text-slate-500 uppercase mb-1">{b.asset.split(':')[0]}</h3>
-              <div className="text-xl font-bold font-mono truncate tracking-tighter">
-                {/* FIXED: Added fraction digits to preserve decimals */}
-                {parseFloat(b.balance).toLocaleString(undefined, { minimumFractionDigits: 2,  maximumFractionDigits: 5, })}
-              </div>
-              
-              <div className="mt-4 pt-3 border-t border-slate-800/50 space-y-1 font-mono text-[10px] text-left">
 
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400 font-bold uppercase">Spendable:</span>
-                  <span className="text-emerald-500 font-bold">
-                    {parseFloat(b.spendable).toFixed(5)} {b.code}
-                  </span>
-                </div>
-
-                {/* Show Reserved + Subentries ONLY for XLM */}
-                {b.asset === 'XLM' && (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-400 font-bold uppercase">Reserved:</span>
-                      <span className="text-amber-500 font-bold">
-                        {parseFloat(b.reserved).toFixed(5)} XLM
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-400 font-bold uppercase">Subentries:</span>
-                      <span className="text-blue-400 font-bold">
-                        {b.subentries}
-                      </span>
-                    </div>
-                  </>
-                )}
-
-              </div>
+              {/* <Button 
+                variant="ghost" 
+                onClick={(e:any) => { e.stopPropagation(); setLiquidityModal({show: true, code: b.asset.split(':')[0], issuer: b.asset.split(':')[1]}); }}
+                className="w-full h-10 border-slate-800 text-[9px] uppercase font-black tracking-widest hover:bg-blue-600/10 hover:text-blue-400"
+              >
+                Deep Ledger Audit
+              </Button> */}
             </div>
-          ))}
+
+          </div>
         </div>
-      </section>
+      );
+    })}
+  </div>
+</section>
       
 
 
@@ -428,15 +521,65 @@ const handleExecuteAddAsset = async () => {
              ))}
           </div>
 
-          <Card className="min-h-[450px] shadow-2xl">
+          <Card className="min-h-[250px] shadow-2xl">
              {activeTab === 'send' && (
-               <div className="space-y-8 animate-in fade-in duration-300">
-                  {/* <div className="flex bg-slate-950 p-1.5 rounded-2xl border border-slate-800 shadow-inner"> */}
-                    {/* <button onClick={() => setPaymentMode('DIRECT')} className={`flex-1 py-3 text-[9px] font-black uppercase rounded-xl transition-all ${paymentMode === 'DIRECT' ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-500'}`}>Direct Payment</button> */}
-                    {/* <button onClick={() => setPaymentMode('FX')} className={`flex-1 py-3 text-[9px] font-black uppercase rounded-xl transition-all ${paymentMode === 'FX' ? 'bg-purple-600 text-white shadow-xl' : 'text-slate-500'}`}>FX Cross-Asset</button> */}
-                  {/* </div> */}
-                  <div className="space-y-6">
-                    <div><Label>Recipient Wallet Address</Label><Input value={sendForm.to} onChange={(e:any)=>setSendForm({...sendForm, to:e.target.value})} placeholder="Recipient G..." /></div>
+              <div className="space-y-8 animate-in fade-in duration-300">
+                <div className="space-y-6">
+                  {/* QUICK SELECT CONTACTS */}
+               
+                  <div className="flex items-center justify-between gap-4 mb-4">
+                    {/* 1. LEFT SIDE: ADD & FAVORITES (SCROLLABLE) */}
+                    <div className="flex items-center gap-3 overflow-x-auto pb-2 custom-scrollbar flex-1">
+                      <button 
+                        onClick={() => { setConsoleTab('ADD'); setShowContactAdd(true); }}
+                        className="flex-shrink-0 w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-blue-500 hover:bg-blue-600 hover:text-white transition-all shadow-lg"
+                      >
+                        <Plus size={16} />
+                      </button>
+                      
+                      {contacts.slice(0, 8).map(c => (
+                        <button
+                          key={c.id}
+                          onClick={() => setSendForm({ ...sendForm, to: c.address })}
+                          className={`flex-shrink-0 px-5 py-2.5 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all ${
+                            sendForm.to === c.address 
+                              ? 'border-blue-500 bg-blue-600 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]' 
+                              : 'border-slate-800 bg-slate-900 text-slate-500 hover:border-slate-600'
+                          }`}
+                        >
+                          {c.name}
+                        </button>
+                      ))}
+
+                      {/* Empty State */}
+                      {contacts.length === 0 && (
+                        <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest italic ml-1">
+                          No Saved Partners
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 2. RIGHT SIDE: FIXED SEARCH TRIGGER */}
+                    <button 
+                      onClick={() => { setConsoleTab('DIRECTORY'); setShowContactAdd(true); }}
+                      className="flex-shrink-0 flex items-center gap-2 px-4 h-10 rounded-full bg-slate-900 border border-slate-800 text-blue-500 hover:bg-blue-600 hover:text-white transition-all shadow-lg group"
+                    >
+                      <Contact size={14} className="group-hover:scale-110 transition-transform" />
+                      <span className="text-[10px] font-black uppercase tracking-tighter">contacts</span>
+                    </button>
+                  </div>
+
+                  <div>
+                    <Label className="flex justify-between">
+                      Recipient Wallet Address
+                  
+                    </Label>
+                    <Input 
+                      value={sendForm.to} 
+                      onChange={(e:any)=>setSendForm({...sendForm, to:e.target.value})} 
+                      placeholder="Recipient G..." 
+                    />
+                  </div>
                     <div className="grid grid-cols-2 gap-6">
                       <div><Label>Debit Source</Label>
                         <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-white text-xs font-bold appearance-none outline-none focus:border-blue-500" value={sendForm.sourceIndex} onChange={(e:any)=>setSendForm({...sendForm, sourceIndex: parseInt(e.target.value)})}>{balances.map((b,i)=>(<option key={i} value={i}>{b.asset.split(':')[0]} (Avail: {parseFloat(b.balance).toFixed(2)})</option>))}</select>
@@ -665,7 +808,7 @@ const handleExecuteAddAsset = async () => {
             <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-4 flex-shrink-0">
               <div>
                 <h2 className="text-xl font-bold text-white tracking-tight">Transaction Audit</h2>
-                <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mt-1">Verified Ghazanfar Bank Node</p>
+                {/* <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mt-1">Verified Ghazanfar Bank Node</p> */}
               </div>
               <button 
                 onClick={() => setSelectedTx(null)} 
@@ -750,6 +893,109 @@ const handleExecuteAddAsset = async () => {
       )}
         </div>
       </div>
+      
+      {showContactAdd && (
+      <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowContactAdd(false)} />
+        
+        <Card className="max-w-4xl w-full h-[500px] border-slate-800 bg-slate-950 p-0 overflow-hidden relative z-10 rounded-[2rem] flex flex-row shadow-2xl">
+          
+          {/* SIDEBAR NAVIGATION */}
+          <div className="w-64 bg-slate-900/50 border-r border-slate-800 p-6 flex flex-col justify-between">
+            <div className="space-y-6">
+              <div className="flex items-center gap-2 mb-8">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <User className="text-white w-5 h-5" />
+                </div>
+                <h2 className="text-sm font-black text-white uppercase tracking-tighter">Contacts</h2>
+              </div>
+
+              <nav className="space-y-2">
+                <button 
+                  onClick={() => setConsoleTab('DIRECTORY')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${consoleTab === 'DIRECTORY' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-800'}`}
+                >
+                  <Search size={14} /> Search Contacts
+                </button>
+                <button 
+                  onClick={() => setConsoleTab('ADD')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${consoleTab === 'ADD' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-800'}`}
+                >
+                  <Plus size={14} /> Register New
+                </button>
+              </nav>
+            </div>
+
+            <Button variant="ghost" onClick={() => setShowContactAdd(false)} className="text-[9px] uppercase font-bold text-slate-500 hover:text-white">
+              Back to Dashboard
+            </Button>
+          </div>
+
+          {/* MAIN CONTENT AREA */}
+          <div className="flex-1 flex flex-col p-8">
+            {consoleTab === 'DIRECTORY' ? (
+              <div className="h-full flex flex-col">
+                <div className="relative mb-6">
+                  
+                  <Input 
+                    placeholder="Filter by name or G... address" 
+                    className="pl-12 h-12 bg-slate-900 border-slate-800"
+                    value={contactSearch}
+                    onChange={(e:any) => setContactSearch(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                  {filteredContacts.length > 0 ? filteredContacts.map(c => (
+                    <div 
+                      key={c.id} 
+                      onClick={() => { setSendForm({...sendForm, to: c.address}); setShowContactAdd(false); }}
+                      className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex justify-between items-center group cursor-pointer hover:border-blue-500/50 transition-all"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-blue-600/10 rounded-full flex items-center justify-center text-blue-500 font-black text-xs">
+                          {c.name[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-white uppercase leading-none">{c.name}</p>
+                          <p className="text-[10px] text-slate-500 font-mono mt-1 italic">{c.address.substring(0, 20)}...</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setContacts(deleteContact(c.id)); }}
+                        className="opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-red-500 transition-all"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )) : (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-600">
+                      <Search size={40} className="mb-4 opacity-20" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">No matching partners found</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="max-w-md mx-auto w-full pt-10 animate-in slide-in-from-right-4">
+                <h3 className="text-lg font-bold text-white uppercase tracking-tighter mb-8">Register Settlement Partner</h3>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label>Full Entity Name</Label>
+                    <Input value={newContactForm.name} onChange={(e:any) => setNewContactForm({...newContactForm, name: e.target.value})} placeholder="e.g. Asia Pacific Treasury" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Verified Public Key (G...)</Label>
+                    <Input value={newContactForm.address} onChange={(e:any) => setNewContactForm({...newContactForm, address: e.target.value})} placeholder="G..." />
+                  </div>
+                  <Button onClick={handleAddContact} className="w-full h-14 bg-blue-600 font-black uppercase tracking-widest">Add to Registry</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+    )}
     </div>
   );
 }
