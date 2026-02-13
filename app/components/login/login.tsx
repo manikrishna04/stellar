@@ -18,7 +18,7 @@ export default function Login({ onLoginSuccess }: { onLoginSuccess: (role: any, 
     // 1. HARD-CODED ADMIN LOGIC
     if (email === "admin@ghazanfarbank.com" && password === "admin123") {
       const role = "BANK_ADMIN";
-      const fullName = "System HQ";
+      const fullName = "Admin User";
       const status = "ACTIVE";
 
       localStorage.removeItem("gb_wallet");
@@ -113,7 +113,7 @@ export default function Login({ onLoginSuccess }: { onLoginSuccess: (role: any, 
               </span>
             </h2>
             <p className="text-slate-400 text-lg leading-relaxed max-w-md font-medium">
-              Empowering global transactions with unmatched security and blockchain settlement speeds. Access your corporate treasury portal.
+              Empowering global transactions with unmatched security and blockchain settlement speeds. Access your wallet now.
             </p>
           </div>
 

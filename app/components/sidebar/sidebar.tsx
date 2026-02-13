@@ -3,10 +3,10 @@ import { Activity, Plus, ShieldCheck, Building2 } from "lucide-react";
 
 export default function Sidebar({ activeTab, setActiveTab }: any) {
   const menuItems = [
-    { id: 'DASHBOARD', label: 'Admin Overview', icon: Activity },
-    { id: 'CREATE_USER', label: 'Register Client', icon: Plus },
+    { id: 'DASHBOARD', label: 'Wallet Dashboard', icon: Activity },
+    { id: 'CREATE_USER', label: 'Register Users', icon: Plus },
     { id: 'KYC_APPROVAL', label: 'KYC Review', icon: ShieldCheck },
-    { id: 'VIEW_ACCOUNTS', label: 'Managed Entities', icon: Building2 },
+    { id: 'VIEW_ACCOUNTS', label: 'Manage Users', icon: Building2 },
   ];
 
   return (
