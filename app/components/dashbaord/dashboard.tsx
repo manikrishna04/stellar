@@ -336,9 +336,9 @@ const handleExecuteAddAsset = async () => {
      {/* 1. ASSET GRID */}
       <section className="space-y-4">
         <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2 ml-1">
-          <Briefcase className="w-3 h-3 text-blue-500"/> Treasury Asset Classes
+          <Briefcase className="w-3 h-3 text-blue-500"/> Wallet Assets
         </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {balances.map((b, i) => (
             <div key={i} className="p-5 rounded-2xl border border-slate-800 bg-slate-900 hover:border-slate-700 transition-all group shadow-lg">
               <div className="flex justify-between items-start mb-3">
@@ -370,12 +370,37 @@ const handleExecuteAddAsset = async () => {
               <h3 className="text-[10px] font-black text-slate-500 uppercase mb-1">{b.asset.split(':')[0]}</h3>
               <div className="text-xl font-bold font-mono truncate tracking-tighter">
                 {/* FIXED: Added fraction digits to preserve decimals */}
-                {parseFloat(b.balance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {parseFloat(b.balance).toLocaleString(undefined, { minimumFractionDigits: 2,  maximumFractionDigits: 5, })}
               </div>
               
-              <div className="mt-4 pt-3 border-t border-slate-800/50 flex justify-between items-center font-mono">
-                <span className="text-[9px] text-slate-600 font-bold uppercase">Spendable</span>
-                <span className="text-emerald-500 text-[11px] font-bold">{parseFloat(b.spendable || b.balance).toFixed(5)}</span>
+              <div className="mt-4 pt-3 border-t border-slate-800/50 space-y-1 font-mono text-[10px] text-left">
+
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 font-bold uppercase">Spendable:</span>
+                  <span className="text-emerald-500 font-bold">
+                    {parseFloat(b.spendable).toFixed(5)} {b.code}
+                  </span>
+                </div>
+
+                {/* Show Reserved + Subentries ONLY for XLM */}
+                {b.asset === 'XLM' && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400 font-bold uppercase">Reserved:</span>
+                      <span className="text-amber-500 font-bold">
+                        {parseFloat(b.reserved).toFixed(5)} XLM
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400 font-bold uppercase">Subentries:</span>
+                      <span className="text-blue-400 font-bold">
+                        {b.subentries}
+                      </span>
+                    </div>
+                  </>
+                )}
+
               </div>
             </div>
           ))}
@@ -405,12 +430,12 @@ const handleExecuteAddAsset = async () => {
                     {/* <button onClick={() => setPaymentMode('FX')} className={`flex-1 py-3 text-[9px] font-black uppercase rounded-xl transition-all ${paymentMode === 'FX' ? 'bg-purple-600 text-white shadow-xl' : 'text-slate-500'}`}>FX Cross-Asset</button> */}
                   {/* </div> */}
                   <div className="space-y-6">
-                    <div><Label>Beneficiary Wallet Address</Label><Input value={sendForm.to} onChange={(e:any)=>setSendForm({...sendForm, to:e.target.value})} placeholder="Recipient G..." /></div>
+                    <div><Label>Recipient Wallet Address</Label><Input value={sendForm.to} onChange={(e:any)=>setSendForm({...sendForm, to:e.target.value})} placeholder="Recipient G..." /></div>
                     <div className="grid grid-cols-2 gap-6">
                       <div><Label>Debit Source</Label>
                         <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-white text-xs font-bold appearance-none outline-none focus:border-blue-500" value={sendForm.sourceIndex} onChange={(e:any)=>setSendForm({...sendForm, sourceIndex: parseInt(e.target.value)})}>{balances.map((b,i)=>(<option key={i} value={i}>{b.asset.split(':')[0]} (Avail: {parseFloat(b.balance).toFixed(2)})</option>))}</select>
                       </div>
-                      <div><Label>Settlement Amount</Label><Input type="number" value={sendForm.amount} onChange={(e:any)=>setSendForm({...sendForm, amount: e.target.value})} placeholder="0.00" /></div>
+                      <div><Label>Sending Amount</Label><Input type="number" value={sendForm.amount} onChange={(e:any)=>setSendForm({...sendForm, amount: e.target.value})} placeholder="0.00" /></div>
                     </div>
                   </div>
                   <Button 
@@ -418,7 +443,7 @@ const handleExecuteAddAsset = async () => {
                   disabled={loading || !sendForm.amount} 
                   className="w-full h-14 bg-blue-600 font-black uppercase text-xs tracking-widest"
                 >
-                  {loading ? <Loader2 className="animate-spin w-4 h-4"/> : "Authorize Institutional Settlement"}
+                  {loading ? <Loader2 className="animate-spin w-4 h-4"/> : "Transfer Funds"}
                 </Button>
                </div>
              )}
