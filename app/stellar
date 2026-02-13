@@ -1,0 +1,173 @@
+"use server";
+
+import { Keypair, Horizon, TransactionBuilder, Operation, Asset, Networks, BASE_FEE } from "@stellar/stellar-sdk";
+
+export async function createCustodialWallet() {
+  try {
+    // 1. Generate a random keypair
+    const pair = Keypair.random();
+    const publicKey = pair.publicKey();
+    const secretKey = pair.secret();
+
+    // 2. Initialize the Horizon server for Testnet
+    const server = new Horizon.Server("https://horizon-testnet.stellar.org");
+
+    // 3. Fund the account using Friendbot (Testnet only)
+    // This effectively "creates" the account on the ledger
+    await server.friendbot(publicKey).call();
+
+    // NOTE: In a real custodial app, you would save secretKey 
+    // to your encrypted database here, linked to the user's ID.
+    
+    return {
+      success: true,
+      publicKey,
+      secretKey, // Included here only for demo purposes!
+    };
+  } catch (error) {
+    console.error("Wallet creation failed:", error);
+    return { success: false, error: "Failed to create wallet" };
+  }
+}
+
+
+export async function getAccountBalance(publicKey: string) {
+
+  const server = new Horizon.Server("https://horizon-testnet.stellar.org");
+
+  try {
+    // Load account details from the network
+    const account = await server.loadAccount(publicKey);
+
+    // Find the 'native' (XLM) balance in the balances array
+    const nativeBalance = account.balances.find(
+      (b) => b.asset_type === "native"
+    );
+
+    return {
+      success: true,
+      // Stellar returns balances as strings to maintain precision
+      balance: nativeBalance ? nativeBalance.balance : "0",
+    };
+  } catch (error) {
+    console.error("Fetch balance failed:", error);
+    return { success: false, error: "Account not found or network error" };
+  }
+}
+
+
+export async function getDetailedBalance(publicKey: string) {
+  const server = new Horizon.Server("https://horizon-testnet.stellar.org");
+
+  try {
+    const account = await server.loadAccount(publicKey);
+    console.log("Account data:", account);
+    const native = account.balances.find(b => b.asset_type === "native");
+    console.log("Native balance data:", native);
+    
+    if (!native) throw new Error("No native balance found");
+
+    const totalBalance = parseFloat(native.balance);
+    const baseReserve = 0.5;
+    const minBalance = (2 + account.subentry_count) * baseReserve;
+    const sellingLiabilities = parseFloat(native.selling_liabilities || "0");
+    const totalReserved = minBalance + sellingLiabilities;
+    const spendable = totalBalance - totalReserved;
+
+    return {
+      success: true,
+      total: totalBalance.toFixed(7),
+      reserved: totalReserved.toFixed(7),
+      spendable: (spendable > 0 ? spendable : 0).toFixed(7),
+      subentries: account.subentry_count
+    };
+  } catch (error) {
+    // If account doesn't exist yet, loadAccount throws a 404 error
+    return { success: false, error: "Account not found" };
+  }
+}
+
+// For stellar to stellar account XLM token transfers.
+export async function sendPayment(senderSecret: string, destination: string, amount: string) {
+  const server = new Horizon.Server("https://horizon-testnet.stellar.org");
+  const senderKeypair = Keypair.fromSecret(senderSecret);
+
+  try {
+    // 1. Load the sender's account to get the latest sequence number
+    const sourceAccount = await server.loadAccount(senderKeypair.publicKey());
+
+    // 2. Build the transaction
+    const transaction = new TransactionBuilder(sourceAccount, {
+      fee: BASE_FEE,
+      networkPassphrase: Networks.TESTNET,
+    })
+      .addOperation(
+        Operation.payment({
+          destination: destination,
+          asset: Asset.native(), // XLM
+          amount: amount,
+        })
+      )
+      // Set a 30-second timeout for the transaction
+      .setTimeout(30)
+      .build();
+
+    // 3. Sign the transaction
+    transaction.sign(senderKeypair);
+
+    // 4. Submit to the network
+    const result = await server.submitTransaction(transaction);
+
+    return { 
+      success: true, 
+      txHash: result.hash 
+    };
+  } catch (error: any) {
+    console.error("Payment failed:", error);
+    // Horizon often returns errors in the 'extras' field
+    const errorDetail = error.response?.data?.extras?.result_codes?.operations?.[0] || error.message;
+    return { success: false, error: `Transaction failed: ${errorDetail}` };
+  }
+}
+
+export async function sendAssetPayment(
+  senderSecret: string, 
+  destination: string, 
+  amount: string, 
+  assetCode?: string, 
+  issuer?: string
+) {
+  const server = new Horizon.Server("https://horizon-testnet.stellar.org");
+  const senderKeypair = Keypair.fromSecret(senderSecret);
+
+  try {
+    const sourceAccount = await server.loadAccount(senderKeypair.publicKey());
+    
+    // Define the asset: Native XLM or an Issued Asset (e.g., USDC)
+    const asset = (!assetCode || assetCode === "XLM") 
+      ? Asset.native() 
+      : new Asset(assetCode, issuer!);
+
+    const transaction = new TransactionBuilder(sourceAccount, {
+      fee: BASE_FEE,
+      networkPassphrase: Networks.TESTNET,
+    })
+      .addOperation(
+        Operation.payment({
+          destination,
+          asset,
+          amount,
+        })
+      )
+      .setTimeout(30)
+      .build();
+
+    transaction.sign(senderKeypair);
+    const result = await server.submitTransaction(transaction);
+    return { success: true, txHash: result.hash };
+  } catch (error: any) {
+    // Note: If recipient hasn't established a "Trustline" for this asset, it will fail
+    const errorDetail = error.response?.data?.extras?.result_codes?.operations?.[0] || error.message;
+    return { success: false, error: errorDetail };
+  }
+}
