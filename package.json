@@ -20,6 +20,7 @@
     "react": "19.2.3",
     "react-day-picker": "^9.13.2",
     "react-dom": "19.2.3",
+    "react-zoom-pan-pinch": "^3.7.0",
     "stellar-hd-wallet": "^1.0.2",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
