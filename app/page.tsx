@@ -2168,26 +2168,23 @@ useEffect(() => {
       <div className="max-w-md w-full space-y-8 animate-in zoom-in-95 duration-500">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-white uppercase tracking-tighter">
-            {userRole === 'BANK_ADMIN' ? 'Vault Authority Access' : 'Treasury Identity Access'}
+            {userRole === 'BANK_ADMIN' ? 'Verify Stellar Wallet' : 'Wallet Identity Access'}
           </h1>
           <p className="text-slate-500 text-[10px] font-black uppercase mt-2 tracking-widest">
-            {userRole === 'BANK_ADMIN' ? 'Admin Node Required' : 'Decryption Required'}
+            {userRole === 'BANK_ADMIN' ? 'PassPhrase Required' : 'PassPhrase Required'}
           </p>
         </div>
         <Card>
           <textarea 
             value={phraseInput}
             onChange={(e) => setPhraseInput(e.target.value)}
-            placeholder="Enter institutional recovery phrase..." 
+            placeholder="Enter your wallet passPhrase..." 
             className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm h-32 mb-4 text-white outline-none focus:border-blue-500 font-mono resize-none"
           />
           <div className="space-y-3">
             <Button onClick={handlePassphraseAuth} className="w-full h-14 bg-blue-600 uppercase font-black tracking-widest shadow-lg shadow-blue-900/20">
-              Authorize {userRole === 'BANK_ADMIN' ? 'Admin' : 'Session'}
+              Verify {userRole === 'BANK_ADMIN' ? 'Admin' : 'User'}
             </Button>
-            <p className="text-[9px] text-slate-600 text-center uppercase font-bold tracking-widest">
-              Secured Ghazanfar Bank Entry • IP: 127.0.0.1
-            </p>
           </div>
         </Card>
       </div>
@@ -2205,7 +2202,7 @@ useEffect(() => {
             <h1 className="font-black text-white uppercase tracking-tighter text-lg leading-none tracking-tight">Ghazanfar Bank</h1>
             <p className="text-[8px] text-emerald-500 font-bold uppercase tracking-[0.2em] mt-1 flex items-center gap-1.5">
               <span className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse"></span> 
-              {userRole === 'BANK_ADMIN' ? 'Compliance Terminal' : 'Corporate Portal'}
+              {userRole === 'BANK_ADMIN' ? 'Bank Portal' : 'Beneficiary Portal'}
             </p>
           </div>
         </div>
@@ -2216,7 +2213,7 @@ useEffect(() => {
               <h2 className="text-sm font-extrabold text-white tracking-tight leading-none uppercase">{companyName || "Corporate Client"}</h2>
             </div>
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">Node ID:</span>
+              <span className="text-[9px] text-white-600 font-bold uppercase tracking-tighter">Wallet ID:</span>
               <div className="flex items-center gap-1.5 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
                 <p className="text-[10px] font-mono text-blue-400 font-bold">
                   {wallet?.publicKey ? `${wallet.publicKey.substring(0, 8)}...${wallet.publicKey.substring(50)}` : "ADMIN_NODE"}
