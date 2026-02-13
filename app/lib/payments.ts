@@ -1,51 +1,4 @@
 
-// import { Keypair, TransactionBuilder, Operation, Asset, Networks } from "@stellar/stellar-sdk";
-// import { server } from "./stellar";
-
-// /* SEND PAYMENT */
-// export async function sendPayment(
-//   secretKey: string, 
-//   destination: string, 
-//   amount: string, 
-//   assetCode: string, 
-//   issuer?: string
-// ) {
-//   const kp = Keypair.fromSecret(secretKey);
-//   const acc = await server.loadAccount(kp.publicKey());
-
-//   // Automatically determine if it's Native (XLM) or a Token
-//   const asset = assetCode === "XLM" 
-//     ? Asset.native() 
-//     : new Asset(assetCode, issuer!);
-
-//   const tx = new TransactionBuilder(acc, { 
-//     fee: "100", 
-//     networkPassphrase: Networks.TESTNET 
-//   })
-//     .addOperation(Operation.payment({ destination, asset, amount }))
-//     .setTimeout(30)
-//     .build();
-
-//   tx.sign(kp);
-//   return await server.submitTransaction(tx);
-// }
-
-// /* CHANGE TRUSTLINE (Add/Remove) */
-// export async function changeTrustline(secretKey: string, assetCode: string, issuer: string, limit: string = "MAX") {
-//   const kp = Keypair.fromSecret(secretKey);
-//   const acc = await server.loadAccount(kp.publicKey());
-
-//   const opParams: any = { asset: new Asset(assetCode, issuer) };
-//   if (limit !== "MAX") opParams.limit = limit; 
-
-//   const tx = new TransactionBuilder(acc, { fee: "100", networkPassphrase: Networks.TESTNET })
-//     .addOperation(Operation.changeTrust(opParams))
-//     .setTimeout(30)
-//     .build();
-
-//   tx.sign(kp);
-//   return await server.submitTransaction(tx);
-// }
 import { 
   Keypair, 
   TransactionBuilder, 
@@ -58,23 +11,29 @@ import {
 import { server } from "./stellar";
 
 /* ENGINE 1: P2P NATIVE (Same Asset Transfer) */
+/* ENGINE 1: P2P NATIVE (Same Asset Transfer) */
 export async function sendPayment(secretKey: string, destination: string, amount: string, assetCode: string, issuer?: string, memoText?: string) {
-  const kp = Keypair.fromSecret(secretKey);
-  const acc = await server.loadAccount(kp.publicKey());
-  const asset = assetCode === "XLM" ? Asset.native() : new Asset(assetCode, issuer!);
+  try {
+    const kp = Keypair.fromSecret(secretKey);
+    const acc = await server.loadAccount(kp.publicKey());
+    const asset = assetCode === "XLM" ? Asset.native() : new Asset(assetCode, issuer!);
 
-  const txBuilder = new TransactionBuilder(acc, { fee: BASE_FEE, networkPassphrase: Networks.TESTNET })
-    .addOperation(Operation.payment({ destination, asset, amount }))
-    .setTimeout(30);
+    const txBuilder = new TransactionBuilder(acc, { fee: BASE_FEE, networkPassphrase: Networks.TESTNET })
+      .addOperation(Operation.payment({ destination, asset, amount }))
+      .setTimeout(30);
 
-  if (memoText) txBuilder.addMemo(Memo.text(memoText));
+    if (memoText) txBuilder.addMemo(Memo.text(memoText));
 
-  const tx = txBuilder.build();
-  tx.sign(kp);
-  const result: any = await server.submitTransaction(tx);
-  return { hash: result.hash, fee: result.fee_charged, ledger: result.ledger, type: 'P2P' };
+    const tx = txBuilder.build();
+    tx.sign(kp);
+    const result: any = await server.submitTransaction(tx);
+    return { hash: result.hash, fee: result.fee_charged, ledger: result.ledger, type: 'P2P' };
+  } catch (e: any) {
+    // This will print the specific Stellar error (e.g., op_no_destination, op_no_trust)
+    console.error("Stellar Submission Error:", e.response?.data?.extras?.result_codes);
+    throw e;
+  }
 }
-
 /* ENGINE 2: CROSS-CURRENCY (FIXED FOR REAL-TIME PATHFINDING) */
 export async function sendCrossAssetPayment(
   secretKey: string,
