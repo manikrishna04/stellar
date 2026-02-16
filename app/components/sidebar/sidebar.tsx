@@ -1,13 +1,29 @@
 "use client";
-import { Activity, Plus, ShieldCheck, Building2 } from "lucide-react";
+import { Activity, Plus, ShieldCheck, Building2, Users } from "lucide-react";
 
 export default function Sidebar({ activeTab, setActiveTab }: any) {
   const menuItems = [
-    { id: 'DASHBOARD', label: 'Wallet Dashboard', icon: Activity },
-    { id: 'CREATE_USER', label: 'Register Users', icon: Plus },
-    { id: 'KYC_APPROVAL', label: 'KYC Review', icon: ShieldCheck },
-    { id: 'VIEW_ACCOUNTS', label: 'Manage Users', icon: Building2 },
-  ];
+  { 
+    id: 'DASHBOARD', 
+    label: 'Treasury Overview', // Focuses on the liquidity and asset management
+    icon: Activity 
+  },
+  { 
+    id: 'CREATE_USER', 
+    label: 'Onboard Beneficiary', // "Beneficiary" is the standard banking term for payees/entities
+    icon: Plus 
+  },
+  { 
+    id: 'KYC_APPROVAL', 
+    label: 'Compliance Review', // Shifts focus to the regulatory "Audit" phase
+    icon: ShieldCheck 
+  },
+  { 
+    id: 'VIEW_ACCOUNTS', 
+    label: 'Manage Beneficiaries', // "Registry" implies a formal institutional record
+    icon: Users 
+  },
+];
 
   return (
     <aside className="w-72 border-r border-slate-900 bg-slate-950/50 p-6 space-y-2 hidden lg:block">

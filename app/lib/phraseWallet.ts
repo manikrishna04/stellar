@@ -9,7 +9,7 @@ const TREASURY_SECRET = "SBKXQPAZSSWLXDZGAHZLLLKCXR6UC6W7FONWG5JFTLYXG7XUB534ZE7
 const TREASURY_KEYPAIR = StellarSdk.Keypair.fromSecret(TREASURY_SECRET);
 
 /* CREATE WALLET (Bank-Funded) */
-export async function createWallet(startingBalance: string = "20.0") {
+export async function createWallet(startingBalance: string = "10.0") {
   // 1. Generate high-entropy mnemonic and keys
   const mnemonic = bip39.generateMnemonic(128); 
   const wallet = StellarHDWallet.fromMnemonic(mnemonic);

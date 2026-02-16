@@ -12,10 +12,13 @@ import {
   X,
   RotateCcw,
   CheckCircle,
-  XCircle
+  XCircle,
+  Folder,
+  Download
 } from "lucide-react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { createWallet } from "../lib/phraseWallet";
+import { cn } from "@/lib/utils";
 
 export default function KYCApprovalScreen() {
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
@@ -95,20 +98,34 @@ export default function KYCApprovalScreen() {
       {/* Header */}
       <header className="flex justify-between items-end border-b border-slate-800 pb-6">
         <div>
-          <h2 className="text-2xl font-black text-white uppercase tracking-tighter">
-            Institutional KYC Queue
-          </h2>
-          <p className="text-slate-500 text-xs font-medium mt-1">
-            Review documentation and issue wallet.
-          </p>
+            <h2 className="text-2xl font-black text-white uppercase tracking-tighter flex items-center gap-2">
+            <ShieldCheck className="w-6 h-6 text-blue-500" /> {/* Added Icon for context */}
+            Beneficiaries KYC Queue
+            </h2>
+            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">
+            Compliance Audit & Wallet Issuance
+            </p>
         </div>
-        <div className="bg-blue-500/10 border border-blue-500/20 px-4 py-2 rounded-xl">
-          <p className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">
-            {pendingUsers.length} Pending Reviews
-          </p>
-        </div>
-      </header>
 
+        {/* DYNAMIC STATUS BADGE */}
+        <div className={cn(
+            "px-4 py-2 rounded-xl border flex items-center gap-2 transition-colors",
+            pendingUsers.length > 0 
+            ? "bg-amber-500/10 border-amber-500/20 text-amber-500" // Work to do
+            : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" // All clear
+        )}>
+            <div className={cn(
+            "w-2 h-2 rounded-full",
+            pendingUsers.length > 0 ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
+            )} />
+            
+            <p className="text-[10px] font-black uppercase tracking-widest">
+            {pendingUsers.length > 0 
+                ? `${pendingUsers.length} Pending Reviews`
+                : "Queue Cleared"}
+            </p>
+        </div>
+        </header>
       {/* Content */}
       {pendingUsers.length === 0 ? (
         <Card className="p-20 text-center border-dashed border-slate-800 bg-transparent">
@@ -151,7 +168,7 @@ export default function KYCApprovalScreen() {
                         className="flex items-center justify-between p-3 bg-slate-950 border border-slate-800 rounded-xl group hover:border-blue-500/50 transition-all"
                       >
                         <div className="flex items-center gap-3">
-                          <Eye className="w-4 h-4 text-slate-600 group-hover:text-blue-400" />
+                          <Folder className="w-4 h-4 text-slate-600 group-hover:text-blue-400" />
                           <span className="text-[11px] font-black text-slate-300 uppercase tracking-widest">
                             {doc.type}
                           </span>
@@ -183,84 +200,98 @@ export default function KYCApprovalScreen() {
         </div>
       )}
 
-      {/* Preview Modal */}
-      {previewDoc && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/95 p-6">
-          <div className="relative bg-slate-950 border border-blue-500 rounded-2xl w-full max-w-7xl h-[88vh] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_20px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden">
 
-            <div className="flex items-center justify-between px-6 py-4 border-b border-blue-500">
-              <h3 className="text-xs font-black uppercase tracking-widest text-white">
-                {previewDoc.type} Preview
-              </h3>
+{/* Preview Modal */}
+{previewDoc && (
+  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/95 p-6 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="relative bg-slate-950 border border-blue-500/50 rounded-2xl w-full max-w-7xl h-[88vh] shadow-2xl overflow-hidden flex flex-col">
 
-              <button
-                onClick={() => setPreviewDoc(null)}
-                className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-900 border border-blue-400 hover:border-red-500/50 text-slate-400 hover:text-red-400 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {/* --- HEADER --- */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-blue-500/30 bg-slate-900/50">
+        <div className="flex items-center gap-3">
+          <h3 className="text-xs font-black uppercase tracking-widest text-blue-400">
+            {previewDoc.type || "Document Preview"}
+          </h3>
+          <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">
+             {previewDoc.url.split('.').pop()?.toUpperCase()}
+          </span>
+        </div>
 
-            <div className="relative h-full w-full bg-black flex items-center justify-center">
-              <TransformWrapper initialScale={1} minScale={0.5} maxScale={5} centerOnInit wheel={{ step: 0.08 }}>
+        {/* ACTIONS: Download & Close */}
+        <div className="flex items-center gap-2">
+          
+          {/* DOWNLOAD BUTTON */}
+          <a
+            href={previewDoc.url}
+            download // Hints browser to download
+            target="_blank" // Fallback for PDF to open in new tab if download fails
+            rel="noopener noreferrer"
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 border border-slate-700 hover:bg-emerald-500/20 hover:border-emerald-500/50 hover:text-emerald-400 text-slate-400 transition-all"
+            title="Download Document"
+          >
+            <Download className="w-4 h-4" />
+          </a>
+
+          {/* CLOSE BUTTON */}
+          <button
+            onClick={() => setPreviewDoc(null)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 border border-slate-700 hover:bg-red-500/20 hover:border-red-500/50 hover:text-red-400 text-slate-400 transition-all"
+            title="Close Preview"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* --- CONTENT AREA --- */}
+      <div className="relative flex-1 bg-black/50 flex items-center justify-center overflow-hidden">
+        {(() => {
+          const isPDF = /\.pdf$/i.test(previewDoc.url);
+          const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(previewDoc.url);
+
+          if (isPDF) {
+            return (
+              <iframe
+                src={`${previewDoc.url}#view=FitH`}
+                className="w-full h-full border-0"
+                title="PDF Preview"
+              />
+            );
+          }
+
+          if (isImage) {
+            return (
+              <TransformWrapper initialScale={1} minScale={0.5} maxScale={5} centerOnInit wheel={{ step: 0.1 }}>
                 {({ zoomIn, zoomOut, resetTransform }) => (
                   <>
-                    <div className="absolute top-4 right-4 z-50 flex gap-2">
-                      <button onClick={() => zoomIn()} className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500/50 flex items-center justify-center text-slate-300">
-                        <ZoomIn className="w-4 h-4" />
-                      </button>
-
-                      <button onClick={() => zoomOut()} className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500/50 flex items-center justify-center text-slate-300">
-                        <ZoomOut className="w-4 h-4" />
-                      </button>
-
-                      <button onClick={() => resetTransform()} className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 hover:border-yellow-500/50 flex items-center justify-center text-slate-300">
-                        <RotateCcw className="w-4 h-4" />
-                      </button>
+                    <div className="absolute top-4 right-4 z-50 flex flex-col gap-2">
+                      <div className="bg-slate-900/90 border border-slate-700 p-1 rounded-xl flex flex-col gap-1 backdrop-blur-md">
+                        <button onClick={() => zoomIn()} className="w-8 h-8 rounded-lg hover:bg-blue-500/20 hover:text-blue-400 flex items-center justify-center text-slate-400 transition-colors">
+                          <ZoomIn className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => zoomOut()} className="w-8 h-8 rounded-lg hover:bg-blue-500/20 hover:text-blue-400 flex items-center justify-center text-slate-400 transition-colors">
+                          <ZoomOut className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => resetTransform()} className="w-8 h-8 rounded-lg hover:bg-yellow-500/20 hover:text-yellow-400 flex items-center justify-center text-slate-400 transition-colors">
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-
-                    <TransformComponent>
-                      {(() => {
-                        const isImage = /\.(jpg|jpeg|png|webp)$/i.test(previewDoc.url);
-                        const isPDF = /\.pdf$/i.test(previewDoc.url);
-
-                        if (isImage) {
-                          return (
-                            <img
-                              src={previewDoc.url}
-                              alt={previewDoc.type}
-                              className="max-h-[78vh] max-w-full object-contain rounded-xl"
-                            />
-                          );
-                        }
-
-                        if (isPDF) {
-                          return (
-                            <iframe
-                              src={previewDoc.url}
-                              className="w-[85vw] h-[78vh] border-0 rounded-xl bg-white"
-                              title="PDF Preview"
-                            />
-                          );
-                        }
-
-                        return (
-                          <div className="text-slate-400 text-sm">
-                            Preview not supported.{" "}
-                            <a href={previewDoc.url} target="_blank" className="text-blue-400 underline">
-                              Open externally
-                            </a>
-                          </div>
-                        );
-                      })()}
+                    <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full flex items-center justify-center">
+                      <img src={previewDoc.url} alt="Preview" className="max-h-full max-w-full object-contain" />
                     </TransformComponent>
                   </>
                 )}
               </TransformWrapper>
-            </div>
-          </div>
-        </div>
-      )}
+            );
+          }
+          
+          return <div className="text-slate-500">Preview not available</div>;
+        })()}
+      </div>
+    </div>
+  </div>
+)}
 
       {toast && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[10000] animate-in slide-in-from-top-4 duration-300">

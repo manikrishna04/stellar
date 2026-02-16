@@ -100,6 +100,7 @@ export default function WalletDashboard({
     name: "",
     address: "",
   });
+  
   const [isRemoving, setIsRemoving] = useState<string | null>(null); // Tracks which asset is being deleted
   const [consoleTab, setConsoleTab] = useState<"DIRECTORY" | "ADD">(
     "DIRECTORY",
@@ -181,6 +182,7 @@ export default function WalletDashboard({
   useEffect(() => {
     setContacts(getContacts());
   }, []);
+
 
   const refreshData = async (pubKey: string) => {
     try {
@@ -429,15 +431,18 @@ function TransactionRow({ tx }: { tx: any }) {
     if (!wallet || !assetConfirm) return;
 
     const { code, issuer } = assetConfirm;
-    setIsAuthorizing(code); // Start button loading state
-    setAssetConfirm(null); // Close confirmation modal
+    
+    // CHANGE 1: Create a unique ID for the loading state
+    const uniqueAssetId = `${code}:${issuer}`;
+    setIsAuthorizing(uniqueAssetId); 
+    
+    setAssetConfirm(null); 
 
     try {
       await changeTrustline(wallet.secretKey, code, issuer);
 
-      // Trigger the success receipt popup
       setReceipt({
-        hash: "Trustline Secured", // You can capture the actual hash from the result if needed
+        hash: "Trustline Secured", 
         fee: "100",
         amount: "Authorized",
         asset: code,
@@ -449,7 +454,7 @@ function TransactionRow({ tx }: { tx: any }) {
     } catch (e) {
       addLog("Authorization Failed.");
     } finally {
-      setIsAuthorizing(null); // Stop button loading state
+      setIsAuthorizing(null); 
     }
   };
 
@@ -634,7 +639,7 @@ function TransactionRow({ tx }: { tx: any }) {
       return "Payment";
     }
     if (opType.includes("change_trust")) {
-      return "Trustline";
+      return "Adding Asset";
     }
     if (opType.includes("create_account")) {
       return "Account Creation";
@@ -928,8 +933,8 @@ function TransactionRow({ tx }: { tx: any }) {
                       </p>
                       <div className="text-2xl font-black tracking-tighter text-white flex items-baseline gap-2">
                         {parseFloat(b.balance).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 4,
+                          minimumFractionDigits: 6,
+                          maximumFractionDigits: 7,
                         })}
                         <span className="text-xs text-slate-500 font-mono">
                           {b.asset.split(":")[0]}
@@ -986,7 +991,7 @@ function TransactionRow({ tx }: { tx: any }) {
                           Spendable
                         </span>
                         <span className="text-emerald-500 font-bold">
-                          {parseFloat(b.spendable).toFixed(4)}
+                          {parseFloat(b.spendable).toFixed(6)}
                         </span>
                       </div>
                       {b.asset === "XLM" ? (
@@ -1171,167 +1176,153 @@ function TransactionRow({ tx }: { tx: any }) {
             )}
 
             {activeTab === "manage" && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                {/* --- PRE-AUTHORIZATION MODAL --- */}
-                {assetConfirm && (
-                  <div className="fixed inset-0 h-screen w-screen z-[9999] flex items-center justify-center p-4">
-                    <div
-                      className="absolute inset-0 bg-[#020617]/95 backdrop-blur-3xl"
-                      onClick={() => setAssetConfirm(null)}
-                    />
-                    <Card className="max-w-md w-full border-white/10 bg-slate-900 shadow-2xl relative z-[10000] rounded-[2rem] p-8">
-                      <div className="flex items-center gap-3 mb-6">
-                        <div className="p-2 bg-blue-500/10 rounded-lg">
-                          <ShieldPlus className="text-blue-400 w-5 h-5" />
-                        </div>
-                        <h2 className="text-xl font-bold text-white tracking-tight">
-                          Authorize Asset
-                        </h2>
-                      </div>
-                      <div className="space-y-4 mb-8">
-                        <div className="p-5 bg-black/40 rounded-2xl border border-white/5 space-y-3 font-mono text-xs shadow-inner">
-                          <div className="flex justify-between border-b border-white/5 pb-2">
-                            <span className="text-slate-500">ASSET CODE</span>
-                            <span className="text-white font-black">
-                              {assetConfirm.code}
-                            </span>
-                          </div>
-                          <div className="flex flex-col gap-1 pt-1">
-                            <span className="text-slate-500 uppercase text-[10px]">
-                              ISSUER NODE
-                            </span>
-                            <span className="text-slate-400 break-all text-[10px] leading-tight">
-                              {assetConfirm.issuer}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-[9px] text-slate-500 italic text-center px-4">
-                          Creating a trustline reserves 0.5 XLM on the ledger.
-                          This can be recovered by removing the asset later.
-                        </p>
-                      </div>
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={() => setAssetConfirm(null)}
-                          variant="secondary"
-                          className="flex-1 h-12 uppercase text-[10px] font-black"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleExecuteAddAsset}
-                          className="flex-1 h-12 bg-blue-600 font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-900/20"
-                        >
-                          Confirm
-                        </Button>
-                      </div>
-                    </Card>
-                  </div>
-                )}
+  <div className="space-y-6 animate-in fade-in duration-300">
+    {/* --- PRE-AUTHORIZATION MODAL --- */}
+    {assetConfirm && (
+      <div className="fixed inset-0 h-screen w-screen z-[9999] flex items-center justify-center p-4">
+        <div
+          className="absolute inset-0 bg-[#020617]/95 backdrop-blur-3xl"
+          onClick={() => setAssetConfirm(null)}
+        />
+        <Card className="max-w-md w-full border-white/10 bg-slate-900 shadow-2xl relative z-[10000] rounded-[2rem] p-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-blue-500/10 rounded-lg">
+              <ShieldPlus className="text-blue-400 w-5 h-5" />
+            </div>
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              Authorize Asset
+            </h2>
+          </div>
+          <div className="space-y-4 mb-8">
+            <div className="p-5 bg-black/40 rounded-2xl border border-white/5 space-y-3 font-mono text-xs shadow-inner">
+              <div className="flex justify-between border-b border-white/5 pb-2">
+                <span className="text-slate-500">ASSET CODE</span>
+                <span className="text-white font-black">{assetConfirm.code}</span>
+              </div>
+              <div className="flex flex-col gap-1 pt-1">
+                <span className="text-slate-500 uppercase text-[10px]">ISSUER NODE</span>
+                <span className="text-slate-400 break-all text-[10px] leading-tight">{assetConfirm.issuer}</span>
+              </div>
+            </div>
+            <p className="text-[9px] text-slate-500 italic text-center px-4">
+              Creating a trustline reserves 0.5 XLM on the ledger.
+              This can be recovered by removing the asset later.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => setAssetConfirm(null)}
+              variant="secondary"
+              className="flex-1 h-12 uppercase text-[10px] font-black"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleExecuteAddAsset}
+              className="flex-1 h-12 bg-blue-600 font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-900/20"
+            >
+              Confirm
+            </Button>
+          </div>
+        </Card>
+      </div>
+    )}
 
-                {/* --- MAIN UI --- */}
-                <div className="space-y-4">
-                  <Label>Verified Asset Search</Label>
-                  <div className="relative">
-                    <Input
-                      placeholder="Search tokens (USDC, BTC, EUR)..."
-                      value={searchQuery}
-                      onChange={(e: any) => handleSearchAssets(e.target.value)}
-                      className="pl-12 h-11 text-xs bg-slate-950/50"
-                    />
+    {/* --- MAIN SEARCH UI --- */}
+    <div className="space-y-4">
+      <Label>Verified Asset Search</Label>
+      <div className="relative">
+        <Input
+          placeholder="Search tokens (USDC, BTC, EUR)..."
+          value={searchQuery}
+          onChange={(e: any) => handleSearchAssets(e.target.value)}
+          className="pl-12 h-11 text-xs bg-slate-950/50"
+        />
+        {isSearching && (
+          <Loader2 className="absolute right-4 top-3 w-5 h-5 animate-spin text-blue-500" />
+        )}
+      </div>
+    </div>
 
-                    {isSearching && (
-                      <Loader2 className="absolute right-4 top-3 w-5 h-5 animate-spin text-blue-500" />
-                    )}
-                  </div>
+    {searchResults.length > 0 && (
+      <div className="space-y-2 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
+        {searchResults.map((a, i) => {
+          // CREATE UNIQUE KEY FOR COMPARISON
+          const currentAssetId = `${a.code}:${a.issuer}`;
+
+          return (
+            <div
+              key={i}
+              className="flex justify-between items-center bg-slate-950/50 p-4 rounded-xl border border-slate-800 hover:border-slate-700 transition-all group"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-blue-900/20 text-blue-400 rounded-lg flex items-center justify-center font-bold border border-blue-500/10">
+                  {a.code[0]}
                 </div>
-
-                {searchResults.length > 0 && (
-                  <div className="space-y-2 max-h-[180px] overflow-y-auto custom-scrollbar pr-1">
-                    {searchResults.map((a, i) => (
-                      <div
-                        key={i}
-                        className="flex justify-between items-center bg-slate-950/50 p-4 rounded-xl border border-slate-800 hover:border-slate-700 transition-all group"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-blue-900/20 text-blue-400 rounded-lg flex items-center justify-center font-bold border border-blue-500/10">
-                            {a.code[0]}
-                          </div>
-                          <div>
-                            <p className="font-bold text-white text-sm tracking-tight">
-                              {a.code}
-                            </p>
-                            <p className="text-[9px] text-slate-500 font-mono truncate w-32 md:w-48 italic">
-                              ID: {a.issuer.substring(0, 12)}...
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          onClick={() => prepareAssetAddition(a.code, a.issuer)}
-                          disabled={isAuthorizing === a.code}
-                          variant="secondary"
-                          className="h-9 px-6 text-[10px] uppercase font-black tracking-widest border border-slate-800"
-                        >
-                          {isAuthorizing === a.code ? (
-                            <Loader2 size={14} className="animate-spin" />
-                          ) : (
-                            "Add Asset"
-                          )}
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="pt-6 border-t border-slate-800/50">
-                  <Label>Manual Asset Registry</Label>
-                  <div className="flex gap-3 mt-1">
-                    <Input
-                      placeholder="Code"
-                      value={manualAsset.code}
-                      onChange={(e: any) =>
-                        setManualAsset({
-                          ...manualAsset,
-                          code: e.target.value.toUpperCase(),
-                        })
-                      }
-                      className="w-24 h-11 text-xs bg-slate-950/50"
-                    />
-                    <Input
-                      placeholder="Issuer Public Key"
-                      value={manualAsset.issuer}
-                      onChange={(e: any) =>
-                        setManualAsset({
-                          ...manualAsset,
-                          issuer: e.target.value,
-                        })
-                      }
-                      className="flex-1 h-11 text-xs bg-slate-950/50"
-                    />
-                    <Button
-                      onClick={() =>
-                        prepareAssetAddition(
-                          manualAsset.code,
-                          manualAsset.issuer,
-                        )
-                      }
-                      disabled={
-                        !manualAsset.code ||
-                        !manualAsset.issuer ||
-                        isAuthorizing === manualAsset.code
-                      }
-                      className="h-11 px-6 shadow-lg bg-blue-600"
-                    >
-                      {isAuthorizing === manualAsset.code ? (
-                        <Loader2 size={18} className="animate-spin" />
-                      ) : (
-                        <Plus size={18} />
-                      )}
-                    </Button>
-                  </div>
+                <div>
+                  <p className="font-bold text-white text-sm tracking-tight">{a.code}</p>
+                  <p className="text-[9px] text-slate-500 font-mono truncate w-32 md:w-48 italic">
+                    ID: {a.issuer.substring(0, 12)}...
+                  </p>
                 </div>
               </div>
-            )}
+              
+              <Button
+                onClick={() => prepareAssetAddition(a.code, a.issuer)}
+                // Disable if ANY authorization is in progress
+                disabled={isAuthorizing !== null}
+                variant="secondary"
+                className="h-9 px-6 text-[10px] uppercase font-black tracking-widest border border-slate-800"
+              >
+                {/* CHECK AGAINST UNIQUE ID INSTEAD OF JUST CODE */}
+                {isAuthorizing === currentAssetId ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  "Add Asset"
+                )}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+    )}
+
+    {/* Manual Registry Section */}
+    <div className="pt-6 border-t border-slate-800/50">
+      <Label>Manual Asset Registry</Label>
+      <div className="flex gap-3 mt-1">
+        <Input
+          placeholder="Code"
+          value={manualAsset.code}
+          onChange={(e: any) =>
+            setManualAsset({ ...manualAsset, code: e.target.value.toUpperCase() })
+          }
+          className="w-24 h-11 text-xs bg-slate-950/50"
+        />
+        <Input
+          placeholder="Issuer Public Key"
+          value={manualAsset.issuer}
+          onChange={(e: any) =>
+            setManualAsset({ ...manualAsset, issuer: e.target.value })
+          }
+          className="flex-1 h-11 text-xs bg-slate-950/50"
+        />
+        <Button
+          onClick={() => prepareAssetAddition(manualAsset.code, manualAsset.issuer)}
+          disabled={!manualAsset.code || !manualAsset.issuer || isAuthorizing !== null}
+          className="h-11 px-6 shadow-lg bg-blue-600"
+        >
+          {/* Check if manual asset matches loading state */}
+          {isAuthorizing === `${manualAsset.code}:${manualAsset.issuer}` ? (
+            <Loader2 size={18} className="animate-spin" />
+          ) : (
+            <Plus size={18} />
+          )}
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
 
             {activeTab === "swap" && (
               <div className="space-y-6 py-4 max-w-lg mx-auto animate-in zoom-in-95">
