@@ -25,19 +25,52 @@
 // }
 import { Asset } from "@stellar/stellar-sdk";
 import { server } from "./stellar";
-export async function getTransactions(publicKey: string) {
-    const txs = await server
-        .transactions()
-        .forAccount(publicKey)
-        .order("desc")
-        .limit(10)
-        .call();
-    return txs.records.map(tx => ({
-        hash: tx.hash,
-        created_at: tx.created_at,
-        memo: tx.memo
-    }));
-}
+// export async function getTransactions(publicKey: string) {
+//     const txs = await server
+//         .transactions()
+//         .forAccount(publicKey)
+//         .order("desc")
+//         .limit(10)
+//         .call();
+//     return txs.records.map(tx => ({
+//         hash: tx.hash,
+//         created_at: tx.created_at,
+//         memo: tx.memo
+//     }));
+// }
+
+export const getTransactions = async (pubKey: string) => {
+  try {
+    const txResponse = await server.transactions()
+      .forAccount(pubKey)
+      .order("desc")
+      .limit(20) // or whatever limit you use
+      .call();
+
+    const enrichedTxs = await Promise.all(
+      txResponse.records.map(async (tx) => {
+        try {
+          const ops = await server.operations().forTransaction(tx.hash).call();
+          const mainOp = ops.records[0]; // usually the first op is the main one
+
+          return {
+            ...tx,
+            type: mainOp?.type || "unknown", // e.g. "payment", "path_payment_strict_send", etc.
+          };
+        } catch (opErr) {
+          console.warn(`Could not fetch ops for tx ${tx.hash}:`, opErr);
+          return { ...tx, type: "unknown" };
+        }
+      })
+    );
+
+    return enrichedTxs;
+  } catch (err) {
+    console.error("getTransactions failed:", err);
+    return [];
+  }
+};
+
 // Add this helper to your existing balances.ts
 export async function getMarketRate(assetCode: string, assetIssuer: string) {
   if (assetCode === "XLM") return 1;

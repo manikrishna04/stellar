@@ -194,6 +194,77 @@ export default function WalletDashboard({
       addLog("Failed to sync ledger.");
     }
   };
+  function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="w-16 h-16 rounded-full bg-slate-800/50 flex items-center justify-center mb-4">
+        <History className="w-8 h-8 text-slate-600" />
+      </div>
+      <p className="text-slate-400 font-medium">No transactions yet</p>
+      <p className="text-xs text-slate-600 mt-1">
+        Your recent ledger activity will appear here
+      </p>
+    </div>
+  );
+}
+function TransactionRow({ tx }: { tx: any }) {
+  const type = getTxDisplayType(tx);
+  const relativeTime = getRelativeTime(tx.created_at);
+  const fullDate = new Date(tx.created_at).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  const typeStyles = {
+    Swap: "text-purple-400 bg-purple-950/40 border-purple-800/50",
+    Payment: "text-blue-400 bg-blue-950/40 border-blue-800/50",
+    Trustline: "text-cyan-400 bg-cyan-950/40 border-cyan-800/50",
+    "Account Creation": "text-emerald-400 bg-emerald-950/40 border-emerald-800/50",
+    Transaction: "text-slate-400 bg-slate-950/40 border-slate-800/50",
+  }[type] || "text-slate-400 bg-slate-950/40 border-slate-800/50";
+
+  return (
+    <div
+      onClick={() => handleViewAudit(tx.hash)}
+      className={`
+        group flex items-center justify-between p-4 rounded-xl border
+        transition-all cursor-pointer hover:bg-slate-800/60 hover:border-slate-600/80
+        ${typeStyles}
+      `}
+    >
+      {/* Left: Type + memo */}
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+      
+
+        <div className="min-w-0">
+          <div className="font-medium text-white text-sm truncate">
+            {type} Executed
+          </div>
+          {/* {tx.memo && (
+            <div className="text-xs text-slate-400 truncate max-w-[220px] md:max-w-[320px]">
+              {tx.memo.length > 60 ? tx.memo.substring(0, 57) + "..." : tx.memo}
+            </div>
+          )} */}
+        </div>
+      </div>
+
+      {/* Right: Time + Date */}
+      <div className="text-right flex-shrink-0 pl-2 md:pl-5 min-w-[110px] md:min-w-[30px]">
+        <div
+          className={`text-sm font-medium ${
+            relativeTime.includes("ago") ? "text-emerald-400" : "text-slate-300"
+          }`}
+        >
+          {relativeTime}
+        </div>
+        <div className="text-[6px] md:text-xs text-slate-400 mt-0.5">
+          {fullDate}
+        </div>
+      </div>
+    </div>
+  );
+}
 
   const handleAddContact = () => {
     if (!newContactForm.name || newContactForm.address.length < 56) {
@@ -249,7 +320,7 @@ export default function WalletDashboard({
           sendForm.amount,
           sCode,
           sIssuer,
-          "B2B Settlement",
+         
         );
       } else {
         res = await sendCrossAssetPayment(
@@ -260,7 +331,7 @@ export default function WalletDashboard({
           sendForm.destCode,
           sendForm.destIssuer,
           sendForm.amount,
-          "FX Settlement",
+       
         );
       }
 
@@ -311,13 +382,13 @@ export default function WalletDashboard({
 
       addLog("Swap path optimized and executed.");
       await syncLedger(wallet.publicKey);
-      
-      const xlmIndex = balances.findIndex(b => b.asset === "XLM");
+
+      const xlmIndex = balances.findIndex((b) => b.asset === "XLM");
 
       setSwapForm({
         sendAssetIndex: xlmIndex !== -1 ? xlmIndex : 0,
         destAssetIndex: -1,
-        amount: ""
+        amount: "",
       });
     } catch (e) {
       addLog("Swap path not found.");
@@ -424,12 +495,105 @@ export default function WalletDashboard({
   const handleViewAudit = async (hash: string) => {
     setFetchingTx(true);
     try {
-      // 1. Fetch the main transaction data
       const tx = await server.transactions().transaction(hash).call();
-
-      // 2. Fetch the operations within that transaction to get the amount/asset
       const ops = await server.operations().forTransaction(hash).call();
-      const mainOp = ops.records[0]; // Usually the first operation contains the payment info
+      const effectsRes = await server.effects().forTransaction(hash).call();
+
+      if (ops.records.length === 0) throw new Error("No operations");
+
+      const mainOp = ops.records[0] as any;
+      const effects = effectsRes.records;
+
+      const isTrustline = mainOp.type === "change_trust";
+      const isAccountCreation = mainOp.type === "create_account";
+      const isPathPayment =
+        mainOp.type === "path_payment_strict_send" ||
+        mainOp.type === "path_payment_strict_receive";
+
+      let displayTitle = "Transaction Details";
+      let txType = mainOp.type.replace(/_/g, " ").toUpperCase();
+      let amountStr = "—";
+      let assetStr = "XLM";
+      let fromAddr = tx.source_account || "—";
+      let toAddr = "—";
+
+      let swapSentAmount: string = "0.0000000";
+      let swapSentAsset: string = "XLM";
+      let swapReceivedAmount: string = "0.0000000";
+      let swapReceivedAsset: string = "Unknown";
+
+      if (isAccountCreation) {
+        displayTitle = "Account Activated";
+        amountStr = mainOp.starting_balance || "0.00";
+        assetStr = "XLM";
+        fromAddr = mainOp.funder || tx.source_account || "—";
+        toAddr = mainOp.account || "—";
+        txType = "ACCOUNT CREATION";
+      } else if (isTrustline) {
+        displayTitle = "Trustline Created";
+        assetStr = mainOp.asset_code || "Unknown";
+        amountStr = "—";
+        fromAddr = mainOp.source_account || tx.source_account || "—";
+        txType = "TRUSTLINE ESTABLISHED";
+      } else if (isPathPayment) {
+        displayTitle = "Swap Executed";
+        txType = "SWAP";
+
+        // Prefer effects — they always tell the truth about what moved
+        const debitedEffect = effects.find(
+          (e: any) =>
+            e.type === "account_debited" && e.account === tx.source_account,
+        );
+        const creditedEffect = effects.find(
+          (e: any) =>
+            e.type === "account_credited" && e.account === tx.source_account,
+        );
+
+        if (debitedEffect) {
+          swapSentAmount = debitedEffect.amount;
+          swapSentAsset =
+            debitedEffect.asset_type === "native"
+              ? "XLM"
+              : debitedEffect.asset_code || "Unknown";
+        }
+        if (creditedEffect) {
+          swapReceivedAmount = creditedEffect.amount;
+          swapReceivedAsset =
+            creditedEffect.asset_type === "native"
+              ? "XLM"
+              : creditedEffect.asset_code || "Unknown";
+        }
+
+        // Fallback to mainOp if effects miss something (rare)
+        if (swapSentAmount === "0.0000000" && mainOp.amount) {
+          swapSentAmount = mainOp.amount;
+          swapSentAsset =
+            mainOp.source_asset_type === "native"
+              ? "XLM"
+              : mainOp.source_asset_code || "Unknown";
+        }
+        if (swapReceivedAmount === "0.0000000" && mainOp.destination_amount) {
+          swapReceivedAmount = mainOp.destination_amount;
+          swapReceivedAsset =
+            mainOp.destination_asset_type === "native"
+              ? "XLM"
+              : mainOp.destination_asset_code || "Unknown";
+        }
+
+        amountStr = swapReceivedAmount;
+        assetStr = swapReceivedAsset;
+        fromAddr = tx.source_account || "—";
+        toAddr =
+          mainOp.destination_account || mainOp.to || tx.source_account || "—"; // usually same account for swap
+      } else if (mainOp.type === "payment") {
+        amountStr = mainOp.amount || "0.00";
+        assetStr =
+          mainOp.asset_type === "native"
+            ? "XLM"
+            : mainOp.asset_code || "Unknown";
+        fromAddr = mainOp.from || tx.source_account || "—";
+        toAddr = mainOp.to || "—";
+      }
 
       setSelectedTx({
         hash: tx.hash,
@@ -438,18 +602,71 @@ export default function WalletDashboard({
         memo: tx.memo,
         created_at: tx.created_at,
         successful: tx.successful,
-        // Mapping operation details
-        amount: mainOp.amount || "0.00",
-        asset: mainOp.asset_code || "XLM",
-        from: mainOp.from || mainOp.source_account,
-        to: mainOp.to || mainOp.funder || "System Operation",
-        type: mainOp.type.replace(/_/g, " "),
+        amount: amountStr,
+        asset: assetStr,
+        from: fromAddr,
+        to: toAddr,
+        type: txType,
+        displayTitle,
+        isTrustline,
+        isAccountCreation,
+        isSwap: isPathPayment,
+        swapSentAmount,
+        swapSentAsset,
+        swapReceivedAmount,
+        swapReceivedAsset,
       });
     } catch (e) {
-      addLog("Audit Retrieval Failed: Link to ledger broken.");
+      console.error("Audit fetch failed:", e);
+      addLog("Audit Retrieval Failed: Could not load transaction details.");
     } finally {
       setFetchingTx(false);
     }
+  };
+
+  const getTxDisplayType = (tx: any) => {
+    const opType = tx.type?.toLowerCase() || "";
+
+    if (opType.includes("path_payment")) {
+      return "Swap";
+    }
+    if (opType.includes("payment")) {
+      return "Payment";
+    }
+    if (opType.includes("change_trust")) {
+      return "Trustline";
+    }
+    if (opType.includes("create_account")) {
+      return "Account Creation";
+    }
+
+    return "Transaction";
+  };
+
+  const getRelativeTime = (dateString: string): string => {
+    const now = new Date();
+    const past = new Date(dateString);
+    const diffMs = now.getTime() - past.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHr = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHr / 24);
+
+    if (diffSec < 60) {
+      return `${diffSec} sec${diffSec !== 1 ? 's' : ''} ago`;
+    }
+    if (diffMin < 60) {
+      return `${diffMin} min${diffMin !== 1 ? 's' : ''} ago`;
+    }
+    if (diffHr < 2) {  // Show hours only up to 2 hours
+      return `${diffHr} hour${diffHr !== 1 ? 's' : ''} ago`;
+    }
+
+    // After 2 hours → fall back to clock time (your original format)
+    return past.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   return (
@@ -525,67 +742,127 @@ export default function WalletDashboard({
       )}
 
       {/* SUCCESS RECEIPT MODAL */}
-      {receipt && (
-        <div className="fixed inset-0 h-screen w-screen z-[9999] flex items-center justify-center p-4">
+      {selectedTx && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedTx(null)}
+        >
           <div
-            className="absolute inset-0 bg-[#020617]/95 backdrop-blur-3xl"
-            onClick={() => setReceipt(null)}
-          />
-          <Card className="max-w-sm w-full text-center border-white/10 bg-slate-900 shadow-2xl relative z-[10000] rounded-[2.5rem] p-8 overflow-hidden">
-            <div className="absolute -top-12 -left-12 w-40 h-40 bg-emerald-500/10 blur-[80px] rounded-full" />
-            <div className="relative z-10">
-              <div className="w-14 h-14 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/20 shadow-inner">
-                <ShieldCheck className="text-emerald-500 w-7 h-7" />
-              </div>
-              <h2 className="text-lg font-black uppercase tracking-tighter text-white leading-none">
-                Transaction Success
+            className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <h2 className="text-lg font-bold">
+                Transaction Details
               </h2>
-              <p className="text-slate-400 text-[9px] uppercase font-bold tracking-[0.2em] mt-2">
-                Ledger State Finalized
-              </p>
+              <button
+                onClick={() => setSelectedTx(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
-              <div className="my-6 p-4 bg-black/40 backdrop-blur-md rounded-2xl text-left space-y-3 font-mono text-[10px] border border-white/5">
-                <div className="flex justify-between border-b border-white/5 pb-2">
-                  <span className="text-slate-500 font-bold uppercase">
-                    Settlement
-                  </span>
-                  <span className="text-white font-bold">
-                    {receipt.amount} {receipt.asset}
-                  </span>
-                </div>
-                <div className="flex justify-between border-b border-white/5 pb-2">
-                  <span className="text-slate-500 font-bold uppercase">
-                    Network Fee
-                  </span>
-                  <span className="text-amber-500">
-                    {(parseInt(receipt.fee) / 10000000).toFixed(7)} XLM
-                  </span>
-                </div>
-                <div className="pt-1 flex flex-col gap-1">
-                  <span className="text-slate-500 font-bold uppercase text-[8px]">
-                    Audit Hash
-                  </span>
-                  <div
-                    className="text-blue-400 break-all leading-tight text-[9px] cursor-pointer hover:text-blue-300"
-                    onClick={() =>
-                      window.open(
-                        `https://stellar.expert/explorer/testnet/tx/${receipt.hash}`,
-                        "_blank",
-                      )
-                    }
-                  >
-                    {receipt.hash}
+            {/* Content */}
+            <div className="p-5 space-y-6 overflow-y-auto">
+              {/* Type / Badge */}
+              <div className="flex justify-center">
+                <span
+                  className={`
+                  px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide
+                  ${selectedTx.successful ? "bg-emerald-900/40 text-emerald-400 border border-emerald-800/50" : "bg-red-900/40 text-red-400 border border-red-800/50"}
+                `}
+                >
+                  {selectedTx.type}
+                </span>
+              </div>
+
+              {/* Main amount / asset section – conditional for trustlines */}
+              {!selectedTx.isTrustline ? (
+                <div className="text-center py-4">
+                  <div className="text-3xl font-black mb-1">
+                    {parseFloat(selectedTx.amount).toFixed(7)}
+                  </div>
+                  <div className="text-blue-400 font-semibold tracking-wide">
+                    {selectedTx.asset}
                   </div>
                 </div>
+              ) : (
+                <div className="text-center py-6">
+                  <div className="text-2xl font-bold text-blue-400 mb-2">
+                    {selectedTx.asset}
+                  </div>
+                  <div className="text-slate-400 text-sm">Asset Authorized</div>
+                </div>
+              )}
+
+              {/* Details grid */}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-slate-500 text-xs uppercase mb-1">
+                    Date
+                  </div>
+                  <div>{new Date(selectedTx.created_at).toLocaleString()}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500 text-xs uppercase mb-1">
+                    Network Fee
+                  </div>
+                  <div>
+                    {(parseInt(selectedTx.fee) / 10000000).toFixed(7)} XLM
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <div className="text-slate-500 text-xs uppercase mb-1">
+                    Sender
+                  </div>
+                  <div className="font-mono text-xs break-all">
+                    {selectedTx.from}
+                  </div>
+                </div>
+                {!selectedTx.isTrustline && (
+                  <div className="col-span-2">
+                    <div className="text-slate-500 text-xs uppercase mb-1">
+                      Recipient
+                    </div>
+                    <div className="font-mono text-xs break-all">
+                      {selectedTx.to}
+                    </div>
+                  </div>
+                )}
               </div>
-              <Button
-                onClick={() => setReceipt(null)}
-                className="w-full h-12 bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl shadow-lg active:scale-95 transition-all"
-              >
-                Done
-              </Button>
+
+              {/* Hash / Proof */}
+              <div>
+                <div className="text-slate-500 text-xs uppercase mb-2">
+                  Audit Hash (Ledger Proof)
+                </div>
+                <button
+                  onClick={() =>
+                    window.open(
+                      `https://stellar.expert/explorer/testnet/tx/${selectedTx.hash}`,
+                      "_blank",
+                    )
+                  }
+                  className="font-mono text-xs text-blue-400 hover:text-blue-300 break-all text-left w-full"
+                >
+                  {selectedTx.hash}
+                </button>
+              </div>
             </div>
-          </Card>
+
+            {/* Footer */}
+            <div className="p-5 border-t border-slate-800">
+              <button
+                onClick={() => window.print()}
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-bold uppercase text-sm tracking-wider rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                <Download size={16} />
+                Download Statement
+              </button>
+            </div>
+          </div>
         </div>
       )}
       {/* 1. ASSET GRID */}
@@ -1102,10 +1379,15 @@ export default function WalletDashboard({
                 </div>
                 <div className="bg-slate-950 p-6 rounded-3xl border border-slate-800 space-y-4 shadow-xl">
                   <Label>Deposit (Receive)</Label>
-                  <select 
+                  <select
                     className="w-full h-12 bg-slate-900 border border-slate-800 rounded-xl px-4 text-xs text-white"
                     value={swapForm.destAssetIndex}
-                    onChange={e => setSwapForm({...swapForm, destAssetIndex: parseInt(e.target.value)})}
+                    onChange={(e) =>
+                      setSwapForm({
+                        ...swapForm,
+                        destAssetIndex: parseInt(e.target.value),
+                      })
+                    }
                   >
                     <option value={-1} disabled>
                       Select asset to receive
@@ -1113,14 +1395,18 @@ export default function WalletDashboard({
 
                     {balances.map((b, i) => (
                       <option key={i} value={i}>
-                        {b.asset.split(':')[0]}
+                        {b.asset.split(":")[0]}
                       </option>
                     ))}
                   </select>
                 </div>
-                <Button 
-                  onClick={handleSwap} 
-                  disabled={loading || swapForm.destAssetIndex === -1 || !swapForm.amount} 
+                <Button
+                  onClick={handleSwap}
+                  disabled={
+                    loading ||
+                    swapForm.destAssetIndex === -1 ||
+                    !swapForm.amount
+                  }
                   className="w-full h-14 text-sm font-black uppercase tracking-[0.2em] shadow-2xl"
                 >
                   execute Swap
@@ -1156,62 +1442,45 @@ export default function WalletDashboard({
 
           {/* AUDIT TRAIL */}
           <section className="space-y-5">
-            <div className="flex justify-between items-center px-1">
-              <h3 className="text-xs font-black uppercase tracking-[0.15em] text-slate-500 flex items-center gap-2">
-                <History className="w-4 h-4 text-blue-500" /> Recent
-                Transactions
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2.5">
+                <History className="w-4 h-4 text-blue-500" />
+                Recent Activity
               </h3>
-              <Button
-                variant="ghost"
-                onClick={() => refreshData(wallet.publicKey)}
-                className="h-8 !px-2 hover:bg-slate-800"
-              >
-                <RefreshCw
-                  className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
-                />
-              </Button>
+
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => refreshData(wallet?.publicKey)}
+                  disabled={loading}
+                  className="h-8 px-3 text-xs"
+                >
+                  {loading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  )}
+                </Button>
+              </div>
             </div>
 
-            <div className="space-y-4 h-[350px] overflow-y-auto pr-1 custom-scrollbar">
-              {txs.map((tx, i) => (
-                <div
-                  key={i}
-                  className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 text-[11px] hover:border-slate-700 hover:bg-slate-900/80 transition-all cursor-pointer group shadow-sm"
-                  onClick={() => handleViewAudit(tx.hash)}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    {/* TECHNICAL HASH ONLY */}
-                    <span className="text-blue-400 font-mono font-bold group-hover:text-blue-300 transition-colors flex items-center gap-1">
-                      <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                      #{tx.hash.substring(0, 12)}...
-                    </span>
-                    <span className="text-slate-600 font-bold tabular-nums">
-                      {new Date(tx.created_at).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
-
-                  {/* MEMO - Displayed as a raw technical string, no labels like "Company" */}
-                  {/* {tx.memo && (
-                  <div className="p-3 bg-black/40 rounded-xl text-slate-500 italic border-l-2 border-slate-700 leading-snug font-mono text-[9px]">
-                    {tx.memo}
-                  </div>
-                )} */}
-                </div>
-              ))}
-
-              {txs.length === 0 && (
-                <div className="text-center py-20 bg-slate-900/20 rounded-3xl border border-dashed border-slate-800 text-slate-700 text-[10px] font-bold uppercase">
-                  No Ledger History
-                </div>
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 custom-scrollbar">
+              {txs.length === 0 ? (
+                <EmptyState />
+              ) : (
+                txs.map((tx) => <TransactionRow key={tx.hash} tx={tx} />)
               )}
             </div>
+
+            {txs.length > 0 && txs.length >= 20 && (
+              <div className="text-center py-4 text-xs text-slate-500">
+                Showing last {txs.length} transactions
+              </div>
+            )}
           </section>
 
           {/* TRANSACTION AUDIT SUMMARY POPUP */}
-
           {selectedTx && (
             <div
               className="fixed inset-0 bg-black/95 backdrop-blur-md flex items-center justify-center z-[60] p-4 animate-in fade-in duration-300"
@@ -1219,16 +1488,14 @@ export default function WalletDashboard({
             >
               <Card
                 className="max-w-md w-full border-blue-500/20 shadow-2xl relative flex flex-col max-h-[90vh]"
-                /* max-h-[90vh] ensures it never goes off-screen vertically */
-                onClick={(e: any) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
               >
                 {/* 1. FIXED HEADER */}
                 <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-4 flex-shrink-0">
                   <div>
                     <h2 className="text-xl font-bold text-white tracking-tight">
-                      Transaction Audit
+                      {selectedTx.displayTitle || "Transaction Details"}
                     </h2>
-                    {/* <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mt-1">Verified Ghazanfar Bank Node</p> */}
                   </div>
                   <button
                     onClick={() => setSelectedTx(null)}
@@ -1243,86 +1510,171 @@ export default function WalletDashboard({
                   {/* Settlement Type Badge */}
                   <div className="flex justify-center">
                     <span
-                      className={`px-4 py-1 rounded-full text-[10px] font-black tracking-[0.2em] border ${
-                        selectedTx.type.includes("path")
-                          ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
-                          : "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                      className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border ${
+                        selectedTx.isSwap
+                          ? "bg-purple-600/20 text-purple-300 border-purple-500/40"
+                          : selectedTx.isTrustline
+                            ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
+                            : selectedTx.isAccountCreation
+                              ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/40"
+                              : "bg-blue-600/20 text-blue-300 border-blue-500/40"
                       }`}
                     >
-                      {selectedTx.type.includes("path")
-                        ? "FX CONVERSION / SWAP"
-                        : "DIRECT DISBURSEMENT"}
+                      {selectedTx.isSwap
+                        ? "SWAP"
+                        : selectedTx.isTrustline
+                          ? "ASSET ADDED"
+                          : selectedTx.isAccountCreation
+                            ? "ACCOUNT CREATION"
+                            : "PAYMENT"}
                     </span>
                   </div>
 
-                  {/* Amount Section */}
-                  <div className="text-center py-4 bg-slate-950/50 rounded-2xl border border-slate-800">
-                    <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">
-                      {" "}
-                      Amount
-                    </p>
-                    <div className="text-2xl font-mono font-bold text-white">
-                      {parseFloat(selectedTx.amount).toFixed(7)}{" "}
-                      <span className="text-blue-500 text-lg">
+                  {/* Conditional main content area */}
+                  {selectedTx.isSwap ? (
+                    <div className="bg-slate-950/70 rounded-2xl border border-purple-500/30 border-2 p-6 space-y-6">
+                      <div className="text-center">
+                        <p className="text-base font-bold text-purple-300 uppercase tracking-wider">
+                          Swap Executed
+                        </p>
+                      </div>
+
+                      <div className="flex flex-row items-center justify-between gap-4 sm:gap-6 bg-slate-950/60 rounded-2xl border border-purple-500/20  p-5">
+                        {/* You Sent */}
+                        <div className="flex-1 text-center">
+                          <p className="text-xs text-slate-400 uppercase font-semibold mb-1.5 tracking-wide">
+                            YOU SENT
+                          </p>
+                          <p className="text-xs sm:text-xl font-bold text-white mb-0.5">
+                            {parseFloat(
+                              selectedTx.swapSentAmount || "0",
+                            ).toFixed(6)}
+                          </p>
+                          <p className="text-lg sm:text-xl font-semibold text-purple-300">
+                            {selectedTx.swapSentAsset}
+                          </p>
+                        </div>
+
+                        {/* Arrow (always visible, responsive size) */}
+                        <div className="flex items-center justify-center text-purple-400 opacity-80 text-3xl sm:text-4xl font-bold px-2 sm:px-4">
+                          →
+                        </div>
+
+                        {/* You Received */}
+                        <div className="flex-1 text-center">
+                          <p className="text-xs text-slate-400 uppercase font-semibold mb-1.5 tracking-wide">
+                            YOU RECEIVED
+                          </p>
+                          <p className="text-xs sm:text-xl font-bold text-white mb-0.5">
+                            {parseFloat(
+                              selectedTx.swapReceivedAmount || "0",
+                            ).toFixed(6)}
+                          </p>
+                          <p className="text-lg sm:text-xl font-semibold text-purple-300">
+                            {selectedTx.swapReceivedAsset}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-center text-sm text-slate-400 pt-2">
+                        Executed via Stellar decentralized exchange path
+                      </div>
+                    </div>
+                  ) : selectedTx.isTrustline ? (
+                    <div className="text-center py-8 bg-slate-950/50 rounded-2xl border border-cyan-500/20">
+                      <p className="text-xs text-slate-400 uppercase font-black tracking-widest mb-3">
+                        AUTHORIZED ASSET
+                      </p>
+                      <div className="text-5xl font-black text-cyan-400 tracking-tight mb-2">
                         {selectedTx.asset}
-                      </span>
+                      </div>
+                      <p className="text-base text-slate-300">
+                        New asset successfully added to your account
+                      </p>
                     </div>
-                    <div className="mt-2 flex items-center justify-center gap-2">
-                      {selectedTx.successful ? (
-                        <span className="bg-emerald-500/10 text-emerald-500 text-[10px] px-2 py-0.5 rounded-full border border-emerald-500/20 font-bold">
-                          SUCCESSFUL
-                        </span>
-                      ) : (
-                        <span className="bg-red-500/10 text-red-500 text-[10px] px-2 py-0.5 rounded-full border border-red-500/20 font-bold">
-                          REJECTED
-                        </span>
-                      )}
+                  ) : selectedTx.isAccountCreation ? (
+                    <div className="text-center py-8 bg-slate-950/50 rounded-2xl border border-emerald-500/20">
+                      <p className="text-xs text-slate-400 uppercase font-black tracking-widest mb-3">
+                        STARTING BALANCE FUNDED
+                      </p>
+                      <div className="text-xl font-black text-emerald-400 tracking-tight mb-2">
+                        {selectedTx.amount} {selectedTx.asset}
+                      </div>
+                      <p className="text-base text-slate-300">
+                        New account created and activated on ledger
+                      </p>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="text-center py-6 bg-slate-950/50 rounded-2xl border border-slate-800">
+                      <p className="text-xs text-slate-500 uppercase font-black tracking-widest mb-2">
+                        TRANSACTION AMOUNT
+                      </p>
+                      <div className="text-4xl font-mono font-bold text-white mb-3">
+                        {selectedTx.amount === "—" ||
+                        isNaN(parseFloat(selectedTx.amount))
+                          ? "—"
+                          : parseFloat(selectedTx.amount).toFixed(7)}
+                        <span className="text-blue-400 text-2xl ml-3">
+                          {selectedTx.asset}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-center gap-3">
+                        {selectedTx.successful ? (
+                          <span className="bg-emerald-600/20 text-emerald-300 text-xs px-4 py-1.5 rounded-full border border-emerald-500/30 font-bold">
+                            SUCCESSFUL
+                          </span>
+                        ) : (
+                          <span className="bg-red-600/20 text-red-300 text-xs px-4 py-1.5 rounded-full border border-red-500/30 font-bold">
+                            FAILED
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Technical Breakdown */}
-                  <div className="space-y-3 font-mono text-[11px]">
+                  <div className="space-y-4 font-mono text-sm bg-slate-950/40 p-4 rounded-xl border border-slate-800/60">
                     <div className="flex justify-between py-2 border-b border-slate-800/50">
-                      <span className="text-slate-500 uppercase">
-                        Settlement Date
+                      <span className="text-slate-400 uppercase font-semibold">
+                        Date
                       </span>
-                      <span className="text-slate-300">
+                      <span className="text-slate-200">
                         {new Date(selectedTx.created_at).toLocaleString()}
                       </span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-slate-800/50">
-                      <span className="text-slate-500 uppercase">
+                      <span className="text-slate-400 uppercase font-semibold">
                         Network Fee
                       </span>
-                      <span className="text-amber-500 font-bold">
-                        {(parseInt(selectedTx.fee) / 10000000).toFixed(7)} XLM
+                      <span className="text-amber-400 font-bold">
+                        {(Number(selectedTx.fee) / 10000000).toFixed(7)} XLM
                       </span>
                     </div>
-                    <div className="flex flex-col py-2 border-b border-slate-800/50 gap-1">
-                      <span className="text-slate-500 uppercase">
-                        Sender Address
-                      </span>
-                      <span className="text-slate-400 break-all leading-relaxed">
+                    <div className="py-2 border-b border-slate-800/50">
+                      <div className="text-slate-400 uppercase font-semibold mb-1">
+                        Sender Account
+                      </div>
+                      <div className="text-slate-300 break-all text-xs leading-relaxed font-mono">
                         {selectedTx.from}
-                      </span>
+                      </div>
                     </div>
-                    <div className="flex flex-col py-2 border-b border-slate-800/50 gap-1">
-                      <span className="text-slate-500 uppercase">
-                        Receipent Address
-                      </span>
-                      <span className="text-slate-400 break-all leading-relaxed">
+                    <div className="py-2">
+                      <div className="text-slate-400 uppercase font-semibold mb-1">
+                        Recipient Account
+                      </div>
+                      <div className="text-slate-300 break-all text-xs leading-relaxed font-mono">
                         {selectedTx.to}
-                      </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="bg-black/40 p-3 rounded-xl border border-slate-800">
-                    <p className="text-[9px] text-slate-600 uppercase font-bold mb-2">
-                      Audit Hash (Ledger Proof)
+                  {/* Audit Hash */}
+                  <div className="bg-black/50 p-4 rounded-xl border border-slate-800">
+                    <p className="text-xs text-slate-500 uppercase font-bold mb-2 tracking-wide">
+                      Transaction Hash (Ledger Proof)
                     </p>
                     <p
-                      className="text-[10px] font-mono text-blue-500 break-all leading-tight cursor-pointer hover:text-blue-400 hover:underline transition-all"
-                      /* Updated to use selectedTx.hash and properly formatted onClick */
+                      className="text-sm font-mono text-blue-400 break-all cursor-pointer hover:text-blue-300 transition-colors"
                       onClick={() =>
                         window.open(
                           `https://stellar.expert/explorer/testnet/tx/${selectedTx.hash}`,
@@ -1335,18 +1687,15 @@ export default function WalletDashboard({
                   </div>
                 </div>
 
-                {/* 3. FIXED FOOTER ACTIONS */}
-                <div className="flex flex-col gap-2 mt-6 pt-4 border-t border-slate-800 flex-shrink-0">
+                {/* 3. FIXED FOOTER */}
+                <div className="flex flex-col gap-3 mt-6 pt-5 border-t border-slate-800 flex-shrink-0">
                   <Button
                     onClick={() => window.print()}
-                    variant="primary"
-                    className="w-full h-12 gap-2"
+                    className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold uppercase text-sm tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 shadow-md"
                   >
-                    <Download className="w-4 h-4" /> Download Statement
+                    <Download size={16} />
+                    Download Statement
                   </Button>
-                  {/* <Button onClick={() => setSelectedTx(null)} variant="secondary" className="w-full h-10 text-[10px] uppercase font-black tracking-widest border border-slate-800">
-                Dismiss Audit
-              </Button> */}
                 </div>
               </Card>
             </div>
